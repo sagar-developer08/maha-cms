@@ -1,0 +1,72 @@
+.Dash {
+  display: flex;
+  justify-content: start;
+  align-items: start;
+}
+
+.content {
+  // height: 200vh;
+  transition: ease-in-out 0.4s;
+  width: 100%;
+}
+.Main39Wrapper {
+  width: 100vw;
+  .form_groupPhone {
+    .react-international-phone-input-container {
+      width: 100%;
+      height: 48px;
+    }
+    .react-international-phone-country-selector {
+      height: 48px;
+      // min-width: 72px;
+    }
+    button {
+      height: 100%;
+      width: 100%;
+      background-color: #e9e9e9;
+      outline: 0;
+      border: 0;
+      color: #000;
+      padding-inline-start: 5px;
+    }
+    input {
+      width: 100%;
+      height: 100%;
+      padding: 12px;
+      background-color: #e9e9e9;
+      outline: 0;
+      border: 0;
+      color: #000;
+    }
+  }
+}
+.MainContainer {
+  padding: 40px;
+  @media (max-width: 580px) {
+    padding: 40px 10px;
+  }
+}
+.containerOpen {
+  width: 75vw;
+  @media (max-width: 580px) {
+    width: 100%;
+  }
+}
+.contianerClose {
+  width: 95vw;
+  @media (max-width: 580px) {
+    width: 100%;
+  }
+}
+.NavOpen {
+  margin-inline-start: var(--NavWidth);
+  @media (max-width: 580px) {
+    margin-inline-start: 0;
+  }
+}
+.NavClose {
+  margin-inline-start: 80px;
+  @media (max-width: 580px) {
+    margin-inline-start: 0;
+  }
+}

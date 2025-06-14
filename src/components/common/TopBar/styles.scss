@@ -1,0 +1,160 @@
+.topNavbar33l {
+  padding: 5px 24px;
+  min-height: 80px;
+  width: 100%;
+  border-bottom: 1px solid rgba(0, 0, 0, 16%);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+
+  .nav_thumb {
+    height: 12px;
+    cursor: pointer;
+    display: none;
+    @media (max-width: 580px) {
+      display: block;
+      height: 12px;
+      cursor: pointer;
+    }
+  }
+
+  @media (max-width: 580px) {
+    padding: 5px 10px;
+  }
+  .sec-title {
+    text-transform: capitalize;
+    @media (max-width: 580px) {
+      display: none;
+    }
+  }
+
+  .SearchBar {
+    background-color: #e9e9e9;
+    border-radius: 50px;
+    display: flex;
+    justify-self: start;
+    align-items: center;
+    padding: 13px 14px;
+    gap: 12px;
+    width: 500px;
+    @media (max-width: 776px) {
+      width: 100%;
+      margin: 10px 0;
+    }
+    @media (max-width: 580px) {
+      width: 100%;
+      display: none;
+    }
+
+    input {
+      background-color: transparent;
+      outline: 0;
+      border: 0;
+    }
+  }
+  .SearchBarMobile {
+    display: none;
+    @media (max-width: 776px) {
+      display: flex;
+      padding: 5px 5px;
+      width: 90%;
+    }
+  }
+  .UserInfo {
+    display: flex;
+    justify-content: start;
+    align-items: center;
+    gap: 16px;
+    @media (max-width: 580px) {
+      width: 100%;
+      justify-content: space-between;
+    }
+    .InfoLang {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      .walletAmount {
+        display: flex;
+        justify-content: start;
+        align-items: center;
+        gap: 4px;
+        font-size: 16px;
+        font-weight: 600;
+        line-height: 18px;
+        padding-inline-end: 24px;
+        border-inline-end: 1px solid rgba(0, 0, 0, 16%);
+        @media (max-width: 580px) {
+          padding-inline-end: 5px;
+          display: none;
+        }
+
+        img {
+          height: 15px;
+          width: 15px;
+        }
+      }
+      .Lang {
+        padding-inline-start: 24px;
+        @media (max-width: 580px) {
+          padding-inline-start: 5px;
+        }
+        select {
+          background-color: transparent;
+          outline: 0;
+          border: 0;
+        }
+      }
+    }
+    .UserDetails {
+      display: flex;
+      justify-content: start;
+      align-items: center;
+      gap: 8px;
+      .avatarProfile {
+        border-radius: 100%;
+      }
+      .dropdown {
+        .mainThumb {
+          background-color: transparent;
+          padding: 0;
+          color: #000;
+          outline: 0;
+          border: 0;
+        }
+        .mainThumb:focus {
+          outline: 0;
+          border: 0;
+        }
+        .dropdown-menu {
+          width: 160px;
+        }
+        .drop_item {
+          padding: 3px 5px;
+          margin-bottom: 10px;
+          cursor: pointer;
+          border-radius: 8px;
+          &:hover {
+            background-color: var(--themePrimary);
+            color: #fff;
+          }
+        }
+        .logout:hover {
+          background-color: #ff4c4c;
+          color: #fff;
+        }
+      }
+      .dropList {
+        padding: 10px 12px;
+      }
+
+      img {
+        height: 30px;
+        width: 30px;
+        object-fit: cover;
+        object-position: center;
+      }
+    }
+  }
+}

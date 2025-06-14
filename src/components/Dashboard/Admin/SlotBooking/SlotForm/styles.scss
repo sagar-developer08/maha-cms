@@ -1,0 +1,68 @@
+.packageFormds39 {
+  .FormWrapper {
+    border-radius: 16px;
+    border: 1px solid rgba(0, 0, 0, 16%);
+    padding: 24px;
+
+    .ImgUploadSec {
+      img {
+        display: block;
+        width: 200px;
+        height: 200px;
+      }
+      .btnWrapper {
+        display: flex;
+        justify-content: start;
+        align-items: center;
+        gap: 16px;
+        button {
+          padding: 8px 26px;
+        }
+      }
+    }
+  }
+  .RemoveBTN {
+    display: flex;
+    justify-content: start;
+    align-items: end;
+    height: 100%;
+    width: 100%;
+    padding-bottom: 5px;
+  }
+
+  .FileUPloadWrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 5px;
+    border: 1px solid var(--themePrimary);
+    border-radius: 8px;
+    width: 100%;
+    cursor: pointer;
+    input {
+      display: none;
+    }
+  }
+  .pds-3 {
+    padding: 0 5px;
+  }
+  .imge_prev {
+    height: 50px;
+    width: 50px;
+  }
+  .table-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+  table {
+    width: 100%;
+    th,
+    td {
+      padding: 0.5rem;
+    }
+  }
+  .itrIcon {
+    cursor: pointer;
+  }
+}

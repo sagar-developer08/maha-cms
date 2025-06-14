@@ -1,0 +1,50 @@
+.PackageCard93kd09 {
+  .imageWrapper {
+    position: relative;
+    height: 300px;
+    z-index: 1;
+    img {
+      height: 100%;
+      width: 100%;
+      border-radius: 16px;
+      position: relative;
+      z-index: 2;
+    }
+    .featured {
+      position: absolute;
+      top: 24px;
+      left: 24px;
+      background-color: #fff;
+      border-radius: 16px;
+      font-weight: 600;
+      font-size: 14px;
+      line-height: 21px;
+      z-index: 3;
+      padding: 4px 12px;
+    }
+  }
+  .bds {
+    font-weight: 600;
+  }
+  .pds {
+    padding: 12px 24px;
+  }
+  .mrs {
+    margin-inline-end: 16px;
+  }
+  .price {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    .title {
+      font-weight: 600;
+      font-size: 20px;
+      line-height: 28px;
+    }
+    .amount {
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 19.2px;
+    }
+  }
+}

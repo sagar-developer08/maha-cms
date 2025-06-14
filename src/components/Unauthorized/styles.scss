@@ -1,0 +1,17 @@
+.UnAuthorizedPaged3939d {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  .title {
+    font-size: 25px;
+    font-weight: 600;
+    line-height: 22px;
+    margin: 15px auto;
+  }
+  .imgThumb {
+    width: auto;
+    height: auto;
+    max-height: 550px;
+  }
+}

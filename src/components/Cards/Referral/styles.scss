@@ -1,0 +1,56 @@
+.Referral39d9 {
+  .cardP {
+    border-radius: 16px;
+    border: 1px solid rgba(0, 0, 0, 16%);
+    padding: 24px;
+    display: flex;
+    justify-content: space-between;
+    height: 210px;
+    flex-direction: column;
+    .profile {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      img {
+        height: 40px;
+        width: 40px;
+        object-fit: cover;
+        object-position: center;
+        border-radius: 100%;
+      }
+      .mgt {
+        margin-inline-start: -15px;
+      }
+      .title {
+        font-size: 16px;
+        font-weight: 600;
+        line-height: 22px;
+      }
+      .avatarsList {
+        display: inline-block;
+      }
+    }
+    .detail {
+      .Name {
+        font-size: 16px;
+        line-height: 28px;
+        font-weight: 600;
+      }
+      .booking {
+        color: var(--themePrimary);
+        cursor: pointer;
+        text-decoration: underline;
+        display: flex;
+        justify-content: start;
+        align-items: center;
+        gap: 10px;
+      }
+    }
+  }
+  .ReferalLInks {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+}

@@ -1,0 +1,21 @@
+.walletCardk32 {
+  margin-bottom: 30px;
+  .giftCard {
+    background-color: var(--themePrimary);
+    padding: 24px;
+    border-radius: 16px;
+    display: flex;
+    justify-content: space-between;
+    height: 210px;
+    flex-direction: column;
+
+    div {
+      color: #fff !important;
+    }
+    .Price {
+      font-size: 48px;
+      font-weight: 700;
+      line-height: 57.6px;
+    }
+  }
+}

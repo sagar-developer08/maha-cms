@@ -1,0 +1,16 @@
+.ProfileFOrmd9d3KJ {
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid rgba(0, 0, 0, 16%);
+  .avatars {
+    width: 80px;
+    height: 80px;
+    border-radius: 16px;
+  }
+  .ProifleWrapper {
+    display: flex;
+    justify-content: start;
+    align-items: center;
+    gap: 16px;
+  }
+}

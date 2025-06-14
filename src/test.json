@@ -1,0 +1,21 @@
+{
+  "package_id": "",
+  "adults": "",
+  "childs": "",
+  "Booking_date": "22-9-2024",
+  "Total_price": "1299",
+  "contact": {
+    "first_name": "",
+    "last_name": "",
+    "email": "",
+    "phone": "",
+    "country": ""
+  },
+  "giftTo": {
+    "first_name": "",
+    "last_name": "",
+    "email": "",
+    "phone": "",
+    "country": ""
+  }
+}

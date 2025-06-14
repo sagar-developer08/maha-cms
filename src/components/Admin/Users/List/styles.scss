@@ -1,0 +1,29 @@
+.TableWallet39 {
+  border: 1px solid rgba(0, 0, 0, 16%);
+  border-radius: 16px;
+  padding: 24px;
+  .tabltitlCon {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .title {
+    font-size: var(--headingsecondary);
+    line-height: 33px;
+    font-weight: 600;
+    margin-bottom: 24px;
+  }
+  .bTnWrapper {
+    display: flex;
+    justify-content: start;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .rdt_TableRow {
+    border-bottom-width: 0 !important;
+    margin-bottom: 24px;
+  }
+}
