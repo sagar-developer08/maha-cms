@@ -68,7 +68,7 @@ function EnhancedBlogForm() {
   const [activeLanguage, setActiveLanguage] = useState("en");
   const [showPreview, setShowPreview] = useState(false);
   const [wordCount, setWordCount] = useState(0);
-  
+
   // WordPress-style collapsible sections
   const [openSections, setOpenSections] = useState({
     excerpt: false,
@@ -103,7 +103,43 @@ function EnhancedBlogForm() {
   const widgetRef = useRef();
   const quillRef = useRef();
 
+  // Normalize category data to ensure consistent format
+  const normalizeCategories = (categories) => {
+    if (!categories) return [];
+    
+    if (Array.isArray(categories)) {
+      return categories.map(cat => {
+        if (typeof cat === 'string') {
+          // If it's a string, try to parse it as JSON first
+          try {
+            const parsed = JSON.parse(cat);
+            return typeof parsed === 'object' ? parsed.id || parsed : parsed;
+          } catch {
+            // If it's not JSON, treat it as a category ID
+            return cat;
+          }
+        }
+        return cat;
+      });
+    }
+    
+    if (typeof categories === 'string') {
+      try {
+        const parsed = JSON.parse(categories);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    
+    return [];
+  };
 
+  // Debug: Log formData changes
+  useEffect(() => {
+    console.log("FormData updated:", formData);
+    console.log("Current categories in formData:", formData.categories);
+  }, [formData]);
 
   // Quill configuration for WordPress-like editor
   const getQuillModules = () => {
@@ -114,9 +150,9 @@ function EnhancedBlogForm() {
         [{ 'size': ['small', false, 'large', 'huge'] }],
         ['bold', 'italic', 'underline', 'strike'],
         [{ 'color': [] }, { 'background': [] }],
-        [{ 'script': 'sub'}, { 'script': 'super' }],
-        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-        [{ 'indent': '-1'}, { 'indent': '+1' }],
+        [{ 'script': 'sub' }, { 'script': 'super' }],
+        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+        [{ 'indent': '-1' }, { 'indent': '+1' }],
         [{ 'direction': 'rtl' }],
         [{ 'align': ['', 'center', 'right', 'justify'] }],
         ['link', 'image', 'video'],
@@ -150,8 +186,6 @@ function EnhancedBlogForm() {
     'color', 'background', 'script'
   ];
 
-
-
   // Initialize form data
   useEffect(() => {
     if (id) {
@@ -159,15 +193,80 @@ function EnhancedBlogForm() {
       setLoading(true);
       getBlogById(id)
         .then(({ data }) => {
+          console.log("Raw blog data received:", data);
+          
+          // Parse title - handle both string and object formats
+          let parsedTitle = { en: "", ar: "" };
+          if (typeof data.title === 'string') {
+            try {
+              parsedTitle = JSON.parse(data.title);
+            } catch {
+              parsedTitle = { en: data.title, ar: "" };
+            }
+          } else if (data.title && typeof data.title === 'object') {
+            parsedTitle = data.title;
+          }
+
+          // Parse content - handle both string and object formats
+          let parsedContent = { en: "", ar: "" };
+          if (typeof data.content === 'string') {
+            try {
+              parsedContent = JSON.parse(data.content);
+            } catch {
+              parsedContent = { en: data.content, ar: "" };
+            }
+          } else if (data.content && typeof data.content === 'object') {
+            parsedContent = data.content;
+          }
+
+          // Parse written_by - handle both string and object formats
+          let parsedWrittenBy = { en: "", ar: "" };
+          if (typeof data.written_by === 'string') {
+            try {
+              parsedWrittenBy = JSON.parse(data.written_by);
+            } catch {
+              parsedWrittenBy = { en: data.written_by, ar: "" };
+            }
+          } else if (data.written_by && typeof data.written_by === 'object') {
+            parsedWrittenBy = data.written_by;
+          }
+
+          // Parse excerpt - handle both string and object formats
+          let parsedExcerpt = { en: "", ar: "" };
+          if (typeof data.excerpt === 'string') {
+            try {
+              parsedExcerpt = JSON.parse(data.excerpt);
+            } catch {
+              parsedExcerpt = { en: data.excerpt, ar: "" };
+            }
+          } else if (data.excerpt && typeof data.excerpt === 'object') {
+            parsedExcerpt = data.excerpt;
+          }
+
+          // Ensure categories is an array using the normalize function
+          let parsedCategories = normalizeCategories(data.categories);
+
+          // Ensure tags is an array
+          let parsedTags = [];
+          if (Array.isArray(data.tags)) {
+            parsedTags = data.tags;
+          } else if (typeof data.tags === 'string') {
+            try {
+              parsedTags = JSON.parse(data.tags);
+            } catch {
+              parsedTags = [];
+            }
+          }
+
           const blogData = {
-            title: data.title || { en: "", ar: "" },
-            content: data.content || { en: "", ar: "" },
-            excerpt: data.excerpt || { en: "", ar: "" },
+            title: parsedTitle,
+            content: parsedContent,
+            excerpt: parsedExcerpt,
             date: data.date || "",
             image: data.image || "",
-            written_by: data.written_by || { en: "", ar: "" },
-            categories: data.categories || [],
-            tags: data.tags || [],
+            written_by: parsedWrittenBy,
+            categories: parsedCategories,
+            tags: parsedTags,
             status: data.status || "draft",
             featured: data.featured || false,
             format: data.format || 'standard',
@@ -181,6 +280,10 @@ function EnhancedBlogForm() {
               ogDescription: data.seo?.ogDescription || { en: "", ar: "" }
             }
           };
+
+          console.log("Parsed blog data:", blogData);
+          console.log("Categories loaded:", blogData.categories);
+          
           setFormData(blogData);
           setUploadedImage(data.image || "");
           updateWordCount(blogData.content[activeLanguage]);
@@ -194,8 +297,6 @@ function EnhancedBlogForm() {
       setLoading(false);
     }
   }, [id]);
-
-
 
   // Update word count
   const updateWordCount = (content) => {
@@ -251,9 +352,14 @@ function EnhancedBlogForm() {
 
   // Handle category selection
   const handleCategoryChange = (categoryId) => {
+    console.log("Category change triggered for ID:", categoryId);
+    console.log("Current categories:", formData.categories);
+    
     const updatedCategories = formData.categories.includes(categoryId)
       ? formData.categories.filter(id => id !== categoryId)
       : [...formData.categories, categoryId];
+
+    console.log("Updated categories:", updatedCategories);
     
     setFormData(prev => ({ ...prev, categories: updatedCategories }));
   };
@@ -288,11 +394,11 @@ function EnhancedBlogForm() {
     };
 
     setAvailableCategories(prev => [...prev, newCategoryObj]);
-    setFormData(prev => ({ 
-      ...prev, 
-      categories: [...prev.categories, categoryId] 
+    setFormData(prev => ({
+      ...prev,
+      categories: [...prev.categories, categoryId]
     }));
-    
+
     setNewCategory({ en: "", ar: "" });
     setShowAddCategory(false);
     toast.success("Category added successfully!");
@@ -319,16 +425,22 @@ function EnhancedBlogForm() {
     }
 
     setIsLoading(true);
-    
+
     const payload = {
       ...formData,
       image: uploadedImage,
       status,
+      categories: formData.categories || [],
+      tags: formData.tags || [],
       seo: {
         ...formData.seo,
         slug: formData.seo.slug || generateSlug(formData.title.en)
       }
     };
+
+    // Debug: Log the payload to see what's being sent
+    console.log("Sending payload:", payload);
+    console.log("Categories being sent:", payload.categories);
 
     try {
       let response;
@@ -337,7 +449,7 @@ function EnhancedBlogForm() {
       } else {
         response = await createBlog(payload);
       }
-      
+
       if (response.status === 200 || response.status === 201) {
         toast.success(isEdit ? "Blog updated successfully!" : "Blog created successfully!");
         navigate("/en/admin/blog");
@@ -346,6 +458,7 @@ function EnhancedBlogForm() {
       }
     } catch (err) {
       console.error("Blog save error:", err);
+      console.error("Error details:", err.response?.data);
       toast.error("Something went wrong while saving the blog!");
     } finally {
       setIsLoading(false);
@@ -360,7 +473,7 @@ function EnhancedBlogForm() {
   if (loading) {
     return <div className="wordpress-loading">Loading...</div>;
   }
-  
+
   if (error) {
     return <div className="wordpress-error">{error}</div>;
   }
@@ -475,7 +588,7 @@ function EnhancedBlogForm() {
                 onClick={() => toggleSection('excerpt')}
                 style={{ cursor: 'pointer' }}
               >
-                <span>Excerpt</span>
+                <span>Written By</span>
                 {openSections.excerpt ? <FaChevronUp /> : <FaChevronDown />}
               </Card.Header>
               <Collapse in={openSections.excerpt}>
@@ -483,13 +596,13 @@ function EnhancedBlogForm() {
                   <Form.Control
                     as="textarea"
                     rows={3}
-                    value={formData.excerpt[activeLanguage] || ""}
-                    onChange={(e) => handleInputChange('excerpt', e.target.value, activeLanguage)}
-                    placeholder={activeLanguage === 'en' ? "Write an excerpt (optional)" : "اكتب مقتطفًا (اختياري)"}
+                    value={formData.written_by[activeLanguage] || ""}
+                    onChange={(e) => handleInputChange('written_by', e.target.value, activeLanguage)}
+                    placeholder={activeLanguage === 'en' ? "Write an Author (optional)" : "اكتب اسم المؤلف (اختياري)"}
                     dir={activeLanguage === 'ar' ? 'rtl' : 'ltr'}
                   />
                   <small className="text-muted">
-                    Excerpts are optional hand-crafted summaries of your content that can be used in your theme.
+                    Enter the name of the author who wrote this blog post.
                   </small>
                 </Card.Body>
               </Collapse>
@@ -497,7 +610,7 @@ function EnhancedBlogForm() {
 
             {/* SEO Section */}
             <Card className="wordpress-section-card">
-              <Card.Header 
+              <Card.Header
                 className="wordpress-section-header"
                 onClick={() => toggleSection('seo')}
                 style={{ cursor: 'pointer' }}
@@ -648,6 +761,7 @@ function EnhancedBlogForm() {
             <Card.Header>
               <FaFolder className="me-2" />
               Categories
+              {loading && <small className="text-muted ms-2">(Loading...)</small>}
             </Card.Header>
             <Card.Body>
               <div className="categories-list">
@@ -663,7 +777,36 @@ function EnhancedBlogForm() {
                   />
                 ))}
               </div>
-              
+
+              {/* Selected Categories Display */}
+              {formData.categories.length > 0 && (
+                <div className="selected-categories mt-3 p-2 bg-light rounded">
+                  <small className="text-muted d-block mb-2">Selected Categories:</small>
+                  {formData.categories.map(categoryId => {
+                    const category = availableCategories.find(cat => cat.id === categoryId);
+                    return category ? (
+                      <Badge key={categoryId} bg="primary" className="me-1 mb-1">
+                        {category.name.en}
+                      </Badge>
+                    ) : (
+                      <Badge key={categoryId} bg="secondary" className="me-1 mb-1">
+                        {categoryId}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Debug Info */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="debug-info mt-2 p-2 bg-warning bg-opacity-10 rounded">
+                  <small className="text-muted">
+                    Debug: Categories count: {formData.categories.length} | 
+                    Categories: {JSON.stringify(formData.categories)}
+                  </small>
+                </div>
+              )}
+
               {showAddCategory ? (
                 <div className="add-category-form mt-3 p-2 border rounded">
                   <Form.Group className="mb-2">
@@ -688,16 +831,16 @@ function EnhancedBlogForm() {
                     />
                   </Form.Group>
                   <div className="d-flex gap-2">
-                    <Button 
-                      variant="primary" 
-                      size="sm" 
+                    <Button
+                      variant="primary"
+                      size="sm"
                       onClick={handleAddNewCategory}
                     >
                       Add
                     </Button>
-                    <Button 
-                      variant="secondary" 
-                      size="sm" 
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       onClick={() => {
                         setShowAddCategory(false);
                         setNewCategory({ en: "", ar: "" });
@@ -708,9 +851,9 @@ function EnhancedBlogForm() {
                   </div>
                 </div>
               ) : (
-                <Button 
-                  variant="link" 
-                  size="sm" 
+                <Button
+                  variant="link"
+                  size="sm"
                   className="p-0 mt-2"
                   onClick={() => setShowAddCategory(true)}
                 >
@@ -807,10 +950,30 @@ function EnhancedBlogForm() {
             <h1>{formData.title[activeLanguage] || "No Title"}</h1>
             <div className="blog-meta mb-3">
               <small className="text-muted">
-                By {formData.written_by[activeLanguage] || "Unknown Author"} | 
+                By {formData.written_by[activeLanguage] || "Unknown Author"} |
                 {formData.date ? new Date(formData.date).toLocaleDateString() : "No Date"}
               </small>
             </div>
+            
+            {/* Categories in Preview */}
+            {formData.categories.length > 0 && (
+              <div className="mb-3">
+                <strong>Categories: </strong>
+                {formData.categories.map(categoryId => {
+                  const category = availableCategories.find(cat => cat.id === categoryId);
+                  return category ? (
+                    <Badge key={categoryId} bg="info" className="me-1">
+                      {category.name[activeLanguage] || category.name.en}
+                    </Badge>
+                  ) : (
+                    <Badge key={categoryId} bg="secondary" className="me-1">
+                      {categoryId}
+                    </Badge>
+                  );
+                })}
+              </div>
+            )}
+            
             {uploadedImage && (
               <img
                 src={uploadedImage}
