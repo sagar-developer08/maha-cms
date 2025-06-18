@@ -258,6 +258,83 @@ function EnhancedBlogForm() {
             }
           }
 
+          // Parse SEO data properly
+          let parsedSEO = {
+            metaTitle: { en: "", ar: "" },
+            metaDescription: { en: "", ar: "" },
+            slug: "",
+            imageAlt: { en: "", ar: "" },
+            focusKeywords: "",
+            ogTitle: { en: "", ar: "" },
+            ogDescription: { en: "", ar: "" }
+          };
+
+          if (data.seo && typeof data.seo === 'object') {
+            // Parse each SEO field properly
+            if (data.seo.metaTitle) {
+              if (typeof data.seo.metaTitle === 'string') {
+                try {
+                  parsedSEO.metaTitle = JSON.parse(data.seo.metaTitle);
+                } catch {
+                  parsedSEO.metaTitle = { en: data.seo.metaTitle, ar: "" };
+                }
+              } else {
+                parsedSEO.metaTitle = data.seo.metaTitle;
+              }
+            }
+
+            if (data.seo.metaDescription) {
+              if (typeof data.seo.metaDescription === 'string') {
+                try {
+                  parsedSEO.metaDescription = JSON.parse(data.seo.metaDescription);
+                } catch {
+                  parsedSEO.metaDescription = { en: data.seo.metaDescription, ar: "" };
+                }
+              } else {
+                parsedSEO.metaDescription = data.seo.metaDescription;
+              }
+            }
+
+            if (data.seo.imageAlt) {
+              if (typeof data.seo.imageAlt === 'string') {
+                try {
+                  parsedSEO.imageAlt = JSON.parse(data.seo.imageAlt);
+                } catch {
+                  parsedSEO.imageAlt = { en: data.seo.imageAlt, ar: "" };
+                }
+              } else {
+                parsedSEO.imageAlt = data.seo.imageAlt;
+              }
+            }
+
+            if (data.seo.ogTitle) {
+              if (typeof data.seo.ogTitle === 'string') {
+                try {
+                  parsedSEO.ogTitle = JSON.parse(data.seo.ogTitle);
+                } catch {
+                  parsedSEO.ogTitle = { en: data.seo.ogTitle, ar: "" };
+                }
+              } else {
+                parsedSEO.ogTitle = data.seo.ogTitle;
+              }
+            }
+
+            if (data.seo.ogDescription) {
+              if (typeof data.seo.ogDescription === 'string') {
+                try {
+                  parsedSEO.ogDescription = JSON.parse(data.seo.ogDescription);
+                } catch {
+                  parsedSEO.ogDescription = { en: data.seo.ogDescription, ar: "" };
+                }
+              } else {
+                parsedSEO.ogDescription = data.seo.ogDescription;
+              }
+            }
+
+            parsedSEO.slug = data.seo.slug || data.slug || "";
+            parsedSEO.focusKeywords = data.seo.focusKeywords || "";
+          }
+
           const blogData = {
             title: parsedTitle,
             content: parsedContent,
@@ -270,15 +347,7 @@ function EnhancedBlogForm() {
             status: data.status || "draft",
             featured: data.featured || false,
             format: data.format || 'standard',
-            seo: {
-              metaTitle: data.seo?.metaTitle || { en: "", ar: "" },
-              metaDescription: data.seo?.metaDescription || { en: "", ar: "" },
-              slug: data.seo?.slug || data.slug || "",
-              imageAlt: data.seo?.imageAlt || { en: "", ar: "" },
-              focusKeywords: data.seo?.focusKeywords || "",
-              ogTitle: data.seo?.ogTitle || { en: "", ar: "" },
-              ogDescription: data.seo?.ogDescription || { en: "", ar: "" }
-            }
+            seo: parsedSEO
           };
 
           console.log("Parsed blog data:", blogData);
@@ -372,12 +441,14 @@ function EnhancedBlogForm() {
 
   // Generate slug from title
   const generateSlug = (title) => {
+    if (!title) return '';
     return title
       .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .trim();
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+      .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
   };
 
   // Handle adding new category
@@ -406,7 +477,7 @@ function EnhancedBlogForm() {
 
   // Auto-generate slug when title changes
   useEffect(() => {
-    if (formData.title.en && !formData.seo.slug) {
+    if (formData.title.en) {
       const slug = generateSlug(formData.title.en);
       handleSEOChange('slug', slug);
     }
@@ -426,21 +497,88 @@ function EnhancedBlogForm() {
 
     setIsLoading(true);
 
+    // Ensure all fields are properly structured for the backend
     const payload = {
-      ...formData,
+      title: JSON.stringify({
+        en: formData.title.en || "",
+        ar: formData.title.ar || ""
+      }),
+      content: JSON.stringify({
+        en: formData.content.en || "",
+        ar: formData.content.ar || ""
+      }),
+      excerpt: JSON.stringify({
+        en: formData.excerpt.en || "",
+        ar: formData.excerpt.ar || ""
+      }),
+      written_by: JSON.stringify({
+        en: formData.written_by.en || "",
+        ar: formData.written_by.ar || ""
+      }),
       image: uploadedImage,
       status,
-      categories: formData.categories || [],
-      tags: formData.tags || [],
-      seo: {
-        ...formData.seo,
-        slug: formData.seo.slug || generateSlug(formData.title.en)
-      }
+      categories: JSON.stringify(formData.categories || []),
+      tags: JSON.stringify(formData.tags || []),
+      date: formData.date || "",
+      featured: formData.featured || false,
+      format: formData.format || 'standard',
+      
+      // SEO fields as individual fields
+      metaTitle: JSON.stringify({
+        en: formData.seo.metaTitle.en || "",
+        ar: formData.seo.metaTitle.ar || ""
+      }),
+      metaDescription: JSON.stringify({
+        en: formData.seo.metaDescription.en || "",
+        ar: formData.seo.metaDescription.ar || ""
+      }),
+      imageAlt: JSON.stringify({
+        en: formData.seo.imageAlt.en || "",
+        ar: formData.seo.imageAlt.ar || ""
+      }),
+      slug: formData.seo.slug || generateSlug(formData.title.en),
+      focusKeywords: formData.seo.focusKeywords || "",
+      ogTitle: JSON.stringify({
+        en: formData.seo.ogTitle.en || "",
+        ar: formData.seo.ogTitle.ar || ""
+      }),
+      ogDescription: JSON.stringify({
+        en: formData.seo.ogDescription.en || "",
+        ar: formData.seo.ogDescription.ar || ""
+      }),
+      
+      // Also include the nested seo object for potential future use
+      seo: JSON.stringify({
+        metaTitle: {
+          en: formData.seo.metaTitle.en || "",
+          ar: formData.seo.metaTitle.ar || ""
+        },
+        metaDescription: {
+          en: formData.seo.metaDescription.en || "",
+          ar: formData.seo.metaDescription.ar || ""
+        },
+        imageAlt: {
+          en: formData.seo.imageAlt.en || "",
+          ar: formData.seo.imageAlt.ar || ""
+        },
+        ogTitle: {
+          en: formData.seo.ogTitle.en || "",
+          ar: formData.seo.ogTitle.ar || ""
+        },
+        ogDescription: {
+          en: formData.seo.ogDescription.en || "",
+          ar: formData.seo.ogDescription.ar || ""
+        },
+        slug: formData.seo.slug || generateSlug(formData.title.en),
+        focusKeywords: formData.seo.focusKeywords || ""
+      })
     };
 
     // Debug: Log the payload to see what's being sent
     console.log("Sending payload:", payload);
     console.log("Categories being sent:", payload.categories);
+    console.log("SEO data being sent:", payload.seo);
+    console.log("Full payload JSON:", JSON.stringify(payload, null, 2));
 
     try {
       let response;
@@ -902,10 +1040,10 @@ function EnhancedBlogForm() {
                 <div className="featured-image-preview">
                   <img
                     src={uploadedImage}
-                    alt="Featured"
+                    alt={formData.seo.imageAlt[activeLanguage] || "Featured"}
                     className="img-fluid rounded mb-3"
                   />
-                  <div className="d-flex gap-2">
+                  <div className="d-flex gap-2 mb-3">
                     <Button
                       variant="outline-secondary"
                       size="sm"
@@ -924,6 +1062,27 @@ function EnhancedBlogForm() {
                       Remove
                     </Button>
                   </div>
+                  
+                  {/* Alt Text Input */}
+                  <Form.Group className="mb-2">
+                    <Form.Label size="sm">
+                      Alt Text ({activeLanguage === 'en' ? 'English' : 'Arabic'})
+                    </Form.Label>
+                    <Form.Control
+                      type="text"
+                      size="sm"
+                      value={formData.seo.imageAlt[activeLanguage] || ""}
+                      onChange={(e) => handleSEOChange('imageAlt', e.target.value, activeLanguage)}
+                      placeholder={activeLanguage === 'en' ? "Describe the image..." : "وصف الصورة..."}
+                      dir={activeLanguage === 'ar' ? 'rtl' : 'ltr'}
+                    />
+                    <small className="text-muted">
+                      {activeLanguage === 'en' 
+                        ? "Add alternative text for accessibility and SEO"
+                        : "أضف نصًا بديلاً لإمكانية الوصول وتحسين محركات البحث"
+                      }
+                    </small>
+                  </Form.Group>
                 </div>
               ) : (
                 <Button
@@ -977,7 +1136,7 @@ function EnhancedBlogForm() {
             {uploadedImage && (
               <img
                 src={uploadedImage}
-                alt="Featured"
+                alt={formData.seo.imageAlt[activeLanguage] || "Featured Image"}
                 className="img-fluid mb-3 rounded"
               />
             )}

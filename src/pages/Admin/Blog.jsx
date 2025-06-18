@@ -168,6 +168,23 @@ function Blog() {
         });
     };
 
+    // Helper function to check SEO field existence
+    const checkSEOField = (blog, field, needsLanguage = true) => {
+        if (needsLanguage) {
+            // Check nested structure first, then flat structure
+            const nestedValue = blog.seo?.[field]?.[languageFilter];
+            const flatValue = blog[field] ? 
+                (typeof blog[field] === 'string' ? 
+                    (blog[field].startsWith('{') ? JSON.parse(blog[field])[languageFilter] : blog[field]) : 
+                    blog[field][languageFilter]) : '';
+            
+            return nestedValue || flatValue;
+        } else {
+            // For non-language specific fields like slug, focusKeywords
+            return blog.seo?.[field] || blog[field];
+        }
+    };
+
     return (
         <div className="blog-management">
             {/* Header */}
@@ -367,20 +384,23 @@ function Blog() {
                                                     <div className="seo-indicators">
                                                         <div className="d-flex flex-column gap-1">
                                                             <Badge 
-                                                                bg={blog.seo?.metaTitle?.[languageFilter] ? "success" : "danger"}
+                                                                bg={checkSEOField(blog, 'metaTitle', true) ? "success" : "danger"}
                                                                 className="small-badge"
+                                                                title={checkSEOField(blog, 'metaTitle', true) ? "Meta title is set" : "Meta title is missing"}
                                                             >
                                                                 Meta Title
                                                             </Badge>
                                                             <Badge 
-                                                                bg={blog.seo?.metaDescription?.[languageFilter] ? "success" : "danger"}
+                                                                bg={checkSEOField(blog, 'metaDescription', true) ? "success" : "danger"}
                                                                 className="small-badge"
+                                                                title={checkSEOField(blog, 'metaDescription', true) ? "Meta description is set" : "Meta description is missing"}
                                                             >
                                                                 Meta Desc
                                                             </Badge>
                                                             <Badge 
-                                                                bg={blog.seo?.slug ? "success" : "danger"}
+                                                                bg={checkSEOField(blog, 'slug', false) ? "success" : "danger"}
                                                                 className="small-badge"
+                                                                title={checkSEOField(blog, 'slug', false) ? "URL slug is set" : "URL slug is missing"}
                                                             >
                                                                 URL Slug
                                                             </Badge>
@@ -491,7 +511,7 @@ function Blog() {
                                             <div className="mb-3">
                                                 <img
                                                     src={blog.image}
-                                                    alt={blog.seo?.imageAlt?.[languageFilter] || "Blog image"}
+                                                    alt={checkSEOField(blog, 'imageAlt', true) || "Blog image"}
                                                     className="img-fluid rounded"
                                                 />
                                             </div>
@@ -500,10 +520,36 @@ function Blog() {
                                         <div className="seo-info">
                                             <h6>SEO Information</h6>
                                             <div className="small">
-                                                <p><strong>Meta Title:</strong> {blog.seo?.metaTitle?.[languageFilter] || "Not set"}</p>
-                                                <p><strong>Meta Description:</strong> {blog.seo?.metaDescription?.[languageFilter] || "Not set"}</p>
-                                                <p><strong>URL Slug:</strong> {blog.seo?.slug || "Not set"}</p>
-                                                <p><strong>Focus Keywords:</strong> {blog.seo?.focusKeywords || "Not set"}</p>
+                                                <p>
+                                                    <strong>Meta Title:</strong> 
+                                                    <span className={checkSEOField(blog, 'metaTitle', true) ? "text-success" : "text-danger"}>
+                                                        {checkSEOField(blog, 'metaTitle', true) || "Not set"}
+                                                    </span>
+                                                </p>
+                                                <p>
+                                                    <strong>Meta Description:</strong> 
+                                                    <span className={checkSEOField(blog, 'metaDescription', true) ? "text-success" : "text-danger"}>
+                                                        {checkSEOField(blog, 'metaDescription', true) || "Not set"}
+                                                    </span>
+                                                </p>
+                                                <p>
+                                                    <strong>URL Slug:</strong> 
+                                                    <span className={checkSEOField(blog, 'slug', false) ? "text-success" : "text-danger"}>
+                                                        {checkSEOField(blog, 'slug', false) || "Not set"}
+                                                    </span>
+                                                </p>
+                                                <p>
+                                                    <strong>Focus Keywords:</strong> 
+                                                    <span className={checkSEOField(blog, 'focusKeywords', false) ? "text-success" : "text-warning"}>
+                                                        {checkSEOField(blog, 'focusKeywords', false) || "Not set"}
+                                                    </span>
+                                                </p>
+                                                <p>
+                                                    <strong>Image Alt Text:</strong> 
+                                                    <span className={checkSEOField(blog, 'imageAlt', true) ? "text-success" : "text-warning"}>
+                                                        {checkSEOField(blog, 'imageAlt', true) || "Not set"}
+                                                    </span>
+                                                </p>
                                             </div>
                                         </div>
                                     </Col>
