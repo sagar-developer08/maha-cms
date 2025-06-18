@@ -31,6 +31,13 @@ function Blog() {
             const { data } = await getAllBlogs();
             const blogsArray = Array.isArray(data) ? data : data.blogs || [];
             
+            // Debug: Log raw data from API
+            console.log('Raw blogs data from API:', blogsArray);
+            if (blogsArray.length > 0) {
+                console.log('First blog raw data:', blogsArray[0]);
+                console.log('First blog SEO data:', blogsArray[0]?.seo);
+            }
+            
             // Process each blog to ensure proper data structure
             const processedBlogs = blogsArray.map(blog => ({
                 ...blog,
@@ -49,16 +56,55 @@ function Blog() {
                 tags: blog.tags || [],
                 status: blog.status || "draft",
                 featured: blog.featured || false,
-                seo: blog.seo || {
-                    metaTitle: { en: "", ar: "" },
-                    metaDescription: { en: "", ar: "" },
-                    slug: blog.slug || "",
-                    imageAlt: { en: "", ar: "" },
-                    focusKeywords: "",
-                    ogTitle: { en: "", ar: "" },
-                    ogDescription: { en: "", ar: "" }
-                }
+                seo: (() => {
+                    // Handle SEO data parsing
+                    let seoData = blog.seo;
+                    
+                    // If seo is a string, try to parse it
+                    if (typeof seoData === 'string' && seoData.startsWith('{')) {
+                        try {
+                            seoData = JSON.parse(seoData);
+                        } catch (e) {
+                            console.warn('Failed to parse SEO data:', seoData);
+                            seoData = {};
+                        }
+                    }
+                    
+                    // Ensure all SEO fields exist with proper structure
+                    const defaultSeo = {
+                        metaTitle: { en: "", ar: "" },
+                        metaDescription: { en: "", ar: "" },
+                        slug: blog.slug || "",
+                        imageAlt: { en: "", ar: "" },
+                        focusKeywords: "",
+                        ogTitle: { en: "", ar: "" },
+                        ogDescription: { en: "", ar: "" }
+                    };
+                    
+                    // If we have parsed SEO data, merge it with defaults
+                    if (seoData && typeof seoData === 'object') {
+                        return {
+                            ...defaultSeo,
+                            ...seoData,
+                            // Ensure nested objects are properly merged
+                            metaTitle: { ...defaultSeo.metaTitle, ...seoData.metaTitle },
+                            metaDescription: { ...defaultSeo.metaDescription, ...seoData.metaDescription },
+                            imageAlt: { ...defaultSeo.imageAlt, ...seoData.imageAlt },
+                            ogTitle: { ...defaultSeo.ogTitle, ...seoData.ogTitle },
+                            ogDescription: { ...defaultSeo.ogDescription, ...seoData.ogDescription }
+                        };
+                    }
+                    
+                    return defaultSeo;
+                })()
             }));
+
+            // Debug: Log processed data
+            console.log('Processed blogs data:', processedBlogs);
+            if (processedBlogs.length > 0) {
+                console.log('First processed blog:', processedBlogs[0]);
+                console.log('First processed blog SEO:', processedBlogs[0]?.seo);
+            }
 
             setBlogs(processedBlogs);
             
@@ -170,18 +216,45 @@ function Blog() {
 
     // Helper function to check SEO field existence
     const checkSEOField = (blog, field, needsLanguage = true) => {
+        console.log('checkSEOField called:', { blogId: blog?.id, field, needsLanguage, languageFilter, seoData: blog?.seo });
+        
         if (needsLanguage) {
-            // Check nested structure first, then flat structure
-            const nestedValue = blog.seo?.[field]?.[languageFilter];
+            // Check nested structure first
+            let nestedValue = blog.seo?.[field]?.[languageFilter];
+            
+            // If nested value is still a string that looks like JSON, parse it
+            if (typeof nestedValue === 'string' && nestedValue.startsWith('{')) {
+                try {
+                    nestedValue = JSON.parse(nestedValue)[languageFilter];
+                } catch (e) {
+                    console.warn('Failed to parse nested SEO field:', nestedValue);
+                }
+            }
+            
+            // Then check flat structure
             const flatValue = blog[field] ? 
                 (typeof blog[field] === 'string' ? 
                     (blog[field].startsWith('{') ? JSON.parse(blog[field])[languageFilter] : blog[field]) : 
                     blog[field][languageFilter]) : '';
             
-            return nestedValue || flatValue;
+            const result = nestedValue || flatValue;
+            console.log(`SEO field result for ${field}:`, result);
+            return result;
         } else {
             // For non-language specific fields like slug, focusKeywords
-            return blog.seo?.[field] || blog[field];
+            let result = blog.seo?.[field] || blog[field];
+            
+            // If the result is still a string that looks like JSON, parse it
+            if (typeof result === 'string' && result.startsWith('{')) {
+                try {
+                    result = JSON.parse(result);
+                } catch (e) {
+                    console.warn('Failed to parse non-language SEO field:', result);
+                }
+            }
+            
+            console.log(`SEO field result for ${field} (no language):`, result);
+            return result;
         }
     };
 
@@ -520,6 +593,11 @@ function Blog() {
                                         <div className="seo-info">
                                             <h6>SEO Information</h6>
                                             <div className="small">
+                                                {/* Debug info */}
+                                                <div className="mb-2 p-2 bg-light border rounded">
+                                                    <small>Debug - Blog ID: {blog.id}, SEO Object: {JSON.stringify(blog.seo, null, 2)}</small>
+                                                </div>
+                                                
                                                 <p>
                                                     <strong>Meta Title:</strong> 
                                                     <span className={checkSEOField(blog, 'metaTitle', true) ? "text-success" : "text-danger"}>

@@ -7,7 +7,7 @@ function BlogForm() {
     try {
         return (
             <div>
-                <h1>Debug: BlogForm Page Loaded</h1>
+                {/* <h1>Debug: BlogForm Page Loaded</h1> */}
                 <EnhancedBlogForm />
             </div>
         );
