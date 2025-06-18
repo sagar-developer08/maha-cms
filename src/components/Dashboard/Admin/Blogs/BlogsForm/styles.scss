@@ -1149,10 +1149,69 @@
             border: 1px solid #ddd;
           }
 
+          .alt-text-section {
+            background: #f9f9f9;
+            border: 1px solid #e5e5e5;
+            border-radius: 4px;
+            padding: 12px;
+            margin-top: 10px;
+
+            .form-label {
+              font-size: 12px;
+              margin-bottom: 4px;
+              color: #23282d;
+
+              .text-danger {
+                font-size: 10px;
+              }
+            }
+
+            .form-control {
+              font-size: 12px;
+              padding: 6px 8px;
+              border: 1px solid #ddd;
+              border-radius: 3px;
+              
+              &:focus {
+                border-color: #0073aa;
+                box-shadow: 0 0 0 1px #0073aa;
+              }
+
+              &[dir="rtl"] {
+                text-align: right;
+              }
+            }
+
+            .form-text {
+              font-size: 11px;
+              margin-top: 2px;
+            }
+          }
+
           .btn {
             font-size: 12px;
             padding: 4px 8px;
             border-radius: 3px;
+          }
+        }
+
+        .no-image-section {
+          text-align: center;
+          
+          .text-muted {
+            background: #f9f9f9;
+            border: 1px solid #e5e5e5;
+            border-radius: 4px;
+            padding: 10px;
+            
+            p {
+              margin: 0;
+              font-size: 11px;
+              
+              &:first-child {
+                margin-bottom: 4px;
+              }
+            }
           }
         }
 
@@ -1636,7 +1695,89 @@
   }
 }
 
+// Custom Alt Text Modal Styles (global override for the modal)
+.alt-text-modal {
+  .modal-backdrop {
+    background: rgba(0, 0, 0, 0.5) !important;
+    z-index: 9999 !important;
+  }
 
+  .modal-content {
+    background: white !important;
+    border: none !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+  }
+
+  .alt-text-input {
+    width: 100% !important;
+    padding: 10px !important;
+    border: 1px solid #ced4da !important;
+    border-radius: 4px !important;
+    font-size: 14px !important;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out !important;
+
+    &:focus {
+      border-color: var(--themePrimary) !important;
+      box-shadow: 0 0 0 0.2rem rgba(122, 179, 66, 0.25) !important;
+      outline: none !important;
+    }
+
+    &[dir="rtl"] {
+      text-align: right !important;
+    }
+  }
+
+  .alt-text-buttons {
+    .btn-cancel {
+      padding: 8px 16px !important;
+      border: 1px solid #ddd !important;
+      background: #f8f9fa !important;
+      border-radius: 4px !important;
+      cursor: pointer !important;
+      transition: all 0.2s ease !important;
+
+      &:hover {
+        background: #e9ecef !important;
+        border-color: #adb5bd !important;
+      }
+    }
+
+    .btn-save {
+      padding: 8px 16px !important;
+      border: none !important;
+      background: var(--themePrimary) !important;
+      color: white !important;
+      border-radius: 4px !important;
+      cursor: pointer !important;
+      transition: all 0.2s ease !important;
+
+      &:hover {
+        background: #6ca03a !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 2px 4px rgba(122, 179, 66, 0.3) !important;
+      }
+    }
+  }
+}
+
+// Enhanced image styles in the editor
+.ql-editor {
+  img {
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      box-shadow: 0 0 0 3px rgba(var(--themePrimary-rgb, 122, 179, 66), 0.3);
+      transform: scale(1.02);
+    }
+
+    &.ql-image-resize-selected {
+      box-shadow: 0 0 0 3px rgba(var(--themePrimary-rgb, 122, 179, 66), 0.5) !important;
+    }
+  }
+}
 
 // Image Resize Module Styles
 .ql-image-resize {
@@ -1646,7 +1787,7 @@
     position: absolute;
     width: 12px;
     height: 12px;
-    background: #0073aa !important;
+    background: var(--themePrimary) !important;
     border: 2px solid white !important;
     border-radius: 4px !important;
     box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
@@ -1654,7 +1795,7 @@
     z-index: 1000 !important;
     
     &:hover {
-      background: #005177 !important;
+      background: #6ca03a !important;
     }
 
     &.ql-image-resize-handle-nw {

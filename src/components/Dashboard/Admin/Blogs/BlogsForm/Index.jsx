@@ -141,6 +141,178 @@ function EnhancedBlogForm() {
     console.log("Current categories in formData:", formData.categories);
   }, [formData]);
 
+  // Custom image handler with alt text support
+  const imageHandler = () => {
+    const input = document.createElement('input');
+    input.setAttribute('type', 'file');
+    input.setAttribute('accept', 'image/*');
+    input.click();
+
+    input.onchange = async () => {
+      const file = input.files[0];
+      if (!file) return;
+
+      // Show loading indicator
+      const quill = quillRef.current.getEditor();
+      const range = quill.getSelection(true);
+      quill.insertText(range.index, '[Uploading image...]', 'user');
+
+      try {
+        // Upload to Cloudinary using the existing upload widget mechanism
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', import.meta.env.VITE_cloudinarypresents);
+        formData.append('cloud_name', import.meta.env.VITE_cloudinaryname);
+
+        const response = await fetch(
+          `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_cloudinaryname}/image/upload`,
+          {
+            method: 'POST',
+            body: formData,
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error('Upload failed');
+        }
+
+        const data = await response.json();
+        const imageUrl = data.secure_url;
+
+        // Remove loading text
+        quill.deleteText(range.index, '[Uploading image...]'.length);
+
+                 // Prompt for alt text with bilingual support
+         const altTextModal = document.createElement('div');
+         altTextModal.className = 'alt-text-modal';
+         altTextModal.innerHTML = `
+           <div class="modal-backdrop" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;">
+             <div class="modal-content" style="background: white; padding: 25px; border-radius: 8px; max-width: 500px; width: 90%; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);">
+               <h4 style="margin: 0 0 10px 0; color: #333; font-size: 18px; font-weight: 600;">📸 Add Alt Text for Image</h4>
+               <p style="margin: 0 0 20px 0; color: #666; font-size: 14px; line-height: 1.4;">Alt text helps screen readers describe images to visually impaired users and improves SEO ranking.</p>
+               
+               <div style="margin-bottom: 18px;">
+                 <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #333; font-size: 14px;">
+                   🇺🇸 Alt Text (English) <span style="color: #dc3545; font-size: 12px;">*Required</span>
+                 </label>
+                 <input 
+                   type="text" 
+                   id="alt-text-en" 
+                   class="alt-text-input"
+                   placeholder="Describe this image in English (e.g., 'Hot air balloon flying over Dubai desert')"
+                   style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px;"
+                 />
+               </div>
+               
+               <div style="margin-bottom: 25px;">
+                 <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #333; font-size: 14px;">
+                   🇸🇦 Alt Text (Arabic) <span style="color: #6c757d; font-size: 12px;">Optional</span>
+                 </label>
+                 <input 
+                   type="text" 
+                   id="alt-text-ar" 
+                   class="alt-text-input"
+                   placeholder="اوصف هذه الصورة بالعربية (مثال: منطاد هوائي ساخن يحلق فوق صحراء دبي)"
+                   dir="rtl"
+                   style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px; text-align: right;"
+                 />
+               </div>
+               
+               <div class="alt-text-buttons" style="display: flex; gap: 12px; justify-content: flex-end;">
+                 <button 
+                   id="cancel-alt-text" 
+                   class="btn-cancel"
+                   style="padding: 10px 20px; border: 1px solid #ddd; background: #f8f9fa; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500;"
+                 >
+                   Cancel
+                 </button>
+                 <button 
+                   id="save-alt-text" 
+                   class="btn-save"
+                   style="padding: 10px 20px; border: none; background: #7ab342; color: white; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500;"
+                 >
+                   ✅ Insert Image
+                 </button>
+               </div>
+             </div>
+           </div>
+         `;
+
+        document.body.appendChild(altTextModal);
+
+        // Focus on the English alt text input
+        const altTextEnInput = document.getElementById('alt-text-en');
+        const altTextArInput = document.getElementById('alt-text-ar');
+        altTextEnInput.focus();
+
+        const handleSave = () => {
+          const altTextEn = altTextEnInput.value.trim();
+          const altTextAr = altTextArInput.value.trim();
+
+          if (!altTextEn) {
+            toast.error('English alt text is required for accessibility');
+            altTextEnInput.focus();
+            return;
+          }
+
+          // Create alt text based on current language
+          const currentAltText = activeLanguage === 'en' ? altTextEn : (altTextAr || altTextEn);
+          
+          // Store both language versions in a data attribute for future use
+          const imgHtml = `<img src="${imageUrl}" alt="${currentAltText}" data-alt-en="${altTextEn}" data-alt-ar="${altTextAr}" style="max-width: 100%; height: auto;" />`;
+          
+          // Insert the image with alt text
+          quill.clipboard.dangerouslyPasteHTML(range.index, imgHtml);
+          
+          document.body.removeChild(altTextModal);
+          toast.success('Image inserted with alt text');
+        };
+
+        const handleCancel = () => {
+          document.body.removeChild(altTextModal);
+          toast.info('Image upload cancelled');
+        };
+
+        // Add event listeners
+        document.getElementById('save-alt-text').addEventListener('click', handleSave);
+        document.getElementById('cancel-alt-text').addEventListener('click', handleCancel);
+        
+        // Handle Enter key to save
+        altTextEnInput.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (altTextEnInput.value.trim()) {
+              handleSave();
+            }
+          }
+        });
+
+        altTextArInput.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (altTextEnInput.value.trim()) {
+              handleSave();
+            }
+          }
+        });
+
+        // Handle Escape key to cancel
+        const handleEscape = (e) => {
+          if (e.key === 'Escape') {
+            handleCancel();
+            document.removeEventListener('keydown', handleEscape);
+          }
+        };
+        document.addEventListener('keydown', handleEscape);
+
+      } catch (error) {
+        console.error('Image upload failed:', error);
+        quill.deleteText(range.index, '[Uploading image...]'.length);
+        toast.error('Failed to upload image. Please try again.');
+      }
+    };
+  };
+
   // Quill configuration for WordPress-like editor
   const getQuillModules = () => {
     const modules = {
@@ -174,6 +346,19 @@ function EnhancedBlogForm() {
 
     return modules;
   };
+
+  // Setup custom image handler after ReactQuill is ready
+  useEffect(() => {
+    if (quillRef.current) {
+      const quill = quillRef.current.getEditor();
+      if (quill) {
+        const toolbar = quill.getModule('toolbar');
+        if (toolbar) {
+          toolbar.addHandler('image', imageHandler);
+        }
+      }
+    }
+  }, [quillRef.current]);
 
   const quillModules = getQuillModules();
 
@@ -305,6 +490,32 @@ function EnhancedBlogForm() {
     setWordCount(words.length);
   };
 
+  // Update alt text for images in content when language changes
+  const updateImageAltText = (content, targetLanguage) => {
+    if (!content) return content;
+    
+    // Create a temporary DOM element to parse HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = content;
+    
+    // Find all images with data-alt attributes
+    const images = tempDiv.querySelectorAll('img[data-alt-en], img[data-alt-ar]');
+    
+    images.forEach(img => {
+      const altEn = img.getAttribute('data-alt-en');
+      const altAr = img.getAttribute('data-alt-ar');
+      
+      // Set the alt text based on target language
+      if (targetLanguage === 'en') {
+        img.setAttribute('alt', altEn || altAr || '');
+      } else {
+        img.setAttribute('alt', altAr || altEn || '');
+      }
+    });
+    
+    return tempDiv.innerHTML;
+  };
+
   // Handle input changes for different field types
   const handleInputChange = (field, value, lang = null) => {
     if (lang) {
@@ -372,12 +583,24 @@ function EnhancedBlogForm() {
 
   // Generate slug from title
   const generateSlug = (title) => {
-    return title
+    if (!title) return '';
+    
+    const slug = title
       .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .trim();
+      .trim()
+      // Replace spaces and special characters with hyphens
+      .replace(/[\s_]+/g, '-')
+      // Remove special characters but keep alphanumeric and hyphens
+      .replace(/[^\w\-]+/g, '')
+      // Remove multiple consecutive hyphens
+      .replace(/\-\-+/g, '-')
+      // Remove leading and trailing hyphens
+      .replace(/^-+|-+$/g, '')
+      // Limit length to avoid very long URLs
+      .substring(0, 100);
+    
+    console.log('generateSlug:', { title, slug }); // Debug log
+    return slug;
   };
 
   // Handle adding new category
@@ -406,7 +629,7 @@ function EnhancedBlogForm() {
 
   // Auto-generate slug when title changes
   useEffect(() => {
-    if (formData.title.en && !formData.seo.slug) {
+    if (formData.title.en) {
       const slug = generateSlug(formData.title.en);
       handleSEOChange('slug', slug);
     }
@@ -421,6 +644,12 @@ function EnhancedBlogForm() {
   const handleSubmit = async (status = 'draft') => {
     if (!formData.title.en || !formData.content.en) {
       toast.error("English title and content are required");
+      return;
+    }
+
+    // Validate alt text if image is present
+    if (uploadedImage && !formData.seo?.imageAlt?.en?.trim()) {
+      toast.error("Alt text for the featured image is required for accessibility");
       return;
     }
 
@@ -441,6 +670,10 @@ function EnhancedBlogForm() {
     // Debug: Log the payload to see what's being sent
     console.log("Sending payload:", payload);
     console.log("Categories being sent:", payload.categories);
+    console.log("Content with images and alt text:", {
+      en: payload.content.en,
+      ar: payload.content.ar
+    });
 
     try {
       let response;
@@ -902,9 +1135,41 @@ function EnhancedBlogForm() {
                 <div className="featured-image-preview">
                   <img
                     src={uploadedImage}
-                    alt="Featured"
+                    alt={formData.seo?.imageAlt?.[activeLanguage] || "Featured"}
                     className="img-fluid rounded mb-3"
                   />
+                  
+                  {/* Alt Text Fields */}
+                  <div className="alt-text-section mb-3">
+                    <Form.Group className="mb-2">
+                      <Form.Label className="small fw-bold">
+                        Alt Text (English) <span className="text-danger">*</span>
+                      </Form.Label>
+                      <Form.Control
+                        type="text"
+                        size="sm"
+                        value={formData.seo?.imageAlt?.en || ''}
+                        onChange={(e) => handleSEOChange('imageAlt', e.target.value, 'en')}
+                        placeholder="Describe this image for accessibility"
+                      />
+                      <Form.Text className="text-muted small">
+                        Important for accessibility and SEO
+                      </Form.Text>
+                    </Form.Group>
+                    
+                    <Form.Group className="mb-2">
+                      <Form.Label className="small fw-bold">Alt Text (Arabic)</Form.Label>
+                      <Form.Control
+                        type="text"
+                        size="sm"
+                        value={formData.seo?.imageAlt?.ar || ''}
+                        onChange={(e) => handleSEOChange('imageAlt', e.target.value, 'ar')}
+                        placeholder="اوصف هذه الصورة لسهولة الوصول"
+                        dir="rtl"
+                      />
+                    </Form.Group>
+                  </div>
+                  
                   <div className="d-flex gap-2">
                     <Button
                       variant="outline-secondary"
@@ -918,7 +1183,14 @@ function EnhancedBlogForm() {
                       size="sm"
                       onClick={() => {
                         setUploadedImage("");
-                        setFormData(prev => ({ ...prev, image: "" }));
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          image: "",
+                          seo: {
+                            ...prev.seo,
+                            imageAlt: { en: "", ar: "" }
+                          }
+                        }));
                       }}
                     >
                       Remove
@@ -926,14 +1198,21 @@ function EnhancedBlogForm() {
                   </div>
                 </div>
               ) : (
-                <Button
-                  variant="outline-primary"
-                  onClick={() => setCurrentFile("blog_image")}
-                  className="w-100"
-                >
-                  <FaImage className="me-2" />
-                  Set Featured Image
-                </Button>
+                <div className="no-image-section">
+                  <Button
+                    variant="outline-primary"
+                    onClick={() => setCurrentFile("blog_image")}
+                    className="w-100 mb-3"
+                  >
+                    <FaImage className="me-2" />
+                    Set Featured Image
+                  </Button>
+                  
+                  <div className="text-muted small text-center">
+                    <p className="mb-1">👆 Upload an image first</p>
+                    <p className="mb-0">Alt text fields will appear after uploading</p>
+                  </div>
+                </div>
               )}
             </Card.Body>
           </Card>
