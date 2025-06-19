@@ -16,14 +16,10 @@ function Blog() {
     const [imageModal, setImageModal] = useState({ show: false, src: "" });
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
+    const [categoryFilter, setCategoryFilter] = useState("all");
     const [languageFilter, setLanguageFilter] = useState("en");
     const [showCategoryManager, setShowCategoryManager] = useState(false);
-    const [categories, setCategories] = useState([
-        { id: 1, name: { en: "Adventure", ar: "مغامرة" }, count: 0 },
-        { id: 2, name: { en: "Travel", ar: "سفر" }, count: 0 },
-        { id: 3, name: { en: "Hot Air Balloon", ar: "منطاد هوائي ساخن" }, count: 0 },
-        { id: 4, name: { en: "Tourism", ar: "سياحة" }, count: 0 }
-    ]);
+    const [availableCategories, setAvailableCategories] = useState([]);
 
     const fetchBlogs = async () => {
         setLoading(true);
@@ -45,7 +41,29 @@ function Blog() {
                     (blog.content.startsWith('{') ? JSON.parse(blog.content) : { en: blog.content, ar: "" }) : 
                     blog.content || { en: "", ar: "" },
                 excerpt: blog.excerpt || { en: "", ar: "" },
-                categories: blog.categories || [],
+                // Handle categories as bilingual object
+                categories: (() => {
+                    if (typeof blog.categories === 'string') {
+                        try {
+                            const parsed = JSON.parse(blog.categories);
+                            if (typeof parsed === 'object' && !Array.isArray(parsed) && parsed.en !== undefined) {
+                                return parsed; // New bilingual format
+                            }
+                            if (Array.isArray(parsed)) {
+                                return { en: parsed, ar: [] }; // Old array format, put in English
+                            }
+                        } catch {
+                            return { en: [], ar: [] };
+                        }
+                    }
+                    if (typeof blog.categories === 'object' && !Array.isArray(blog.categories)) {
+                        return blog.categories; // Already bilingual object
+                    }
+                    if (Array.isArray(blog.categories)) {
+                        return { en: blog.categories, ar: [] }; // Old array format
+                    }
+                    return { en: [], ar: [] };
+                })(),
                 tags: blog.tags || [],
                 status: blog.status || "draft",
                 featured: blog.featured || false,
@@ -62,8 +80,8 @@ function Blog() {
 
             setBlogs(processedBlogs);
             
-            // Update category counts
-            updateCategoryCounts(processedBlogs);
+            // Extract and update available categories
+            updateAvailableCategories(processedBlogs);
         } catch (err) {
             console.error("Error fetching blogs:", err);
             toast.error("Failed to fetch blogs");
@@ -72,14 +90,41 @@ function Blog() {
         }
     };
 
-    const updateCategoryCounts = (blogsData) => {
-        const updatedCategories = categories.map(category => ({
-            ...category,
+    const updateAvailableCategories = (blogsData) => {
+        // Extract all unique categories from blogs (both English and Arabic)
+        const categorySet = new Set();
+        blogsData.forEach(blog => {
+            if (blog.categories && typeof blog.categories === 'object') {
+                // Add English categories
+                if (Array.isArray(blog.categories.en)) {
+                    blog.categories.en.forEach(category => {
+                        if (category && typeof category === 'string' && category.trim()) {
+                            categorySet.add(category.trim());
+                        }
+                    });
+                }
+                // Add Arabic categories
+                if (Array.isArray(blog.categories.ar)) {
+                    blog.categories.ar.forEach(category => {
+                        if (category && typeof category === 'string' && category.trim()) {
+                            categorySet.add(category.trim());
+                        }
+                    });
+                }
+            }
+        });
+
+        // Convert to array with counts
+        const categoriesWithCounts = Array.from(categorySet).map(categoryName => ({
+            name: categoryName,
             count: blogsData.filter(blog => 
-                blog.categories && blog.categories.includes(category.id)
+                blog.categories && 
+                ((Array.isArray(blog.categories.en) && blog.categories.en.includes(categoryName)) ||
+                 (Array.isArray(blog.categories.ar) && blog.categories.ar.includes(categoryName)))
             ).length
-        }));
-        setCategories(updatedCategories);
+        })).sort((a, b) => a.name.localeCompare(b.name));
+
+        setAvailableCategories(categoriesWithCounts);
     };
 
     useEffect(() => {
@@ -125,11 +170,19 @@ function Blog() {
         const matchesSearch = !searchTerm || 
             blog.title[languageFilter]?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             blog.written_by[languageFilter]?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (Array.isArray(blog.tags) && blog.tags.some(tag => tag && tag.toLowerCase().includes(searchTerm.toLowerCase())));
+            (Array.isArray(blog.tags) && blog.tags.some(tag => tag && tag.toLowerCase().includes(searchTerm.toLowerCase()))) ||
+            (blog.categories && 
+             ((Array.isArray(blog.categories.en) && blog.categories.en.some(category => category && category.toLowerCase().includes(searchTerm.toLowerCase()))) ||
+              (Array.isArray(blog.categories.ar) && blog.categories.ar.some(category => category && category.toLowerCase().includes(searchTerm.toLowerCase())))));
 
         const matchesStatus = statusFilter === "all" || blog.status === statusFilter;
+        
+        const matchesCategory = categoryFilter === "all" || 
+            (blog.categories && 
+             ((Array.isArray(blog.categories.en) && blog.categories.en.includes(categoryFilter)) ||
+              (Array.isArray(blog.categories.ar) && blog.categories.ar.includes(categoryFilter))));
 
-        return matchesSearch && matchesStatus;
+        return matchesSearch && matchesStatus && matchesCategory;
     });
 
     const getStatusBadge = (status) => {
@@ -160,28 +213,51 @@ function Blog() {
         }
     };
 
-    const getCategoryNames = (categoryIds) => {
-        if (!categoryIds || !Array.isArray(categoryIds)) return [];
-        return categoryIds.map(id => {
-            const category = categories.find(cat => cat.id === id);
-            return category ? category.name[languageFilter] : `Unknown (${id})`;
-        });
+    const getCategoryNames = (categories) => {
+        if (!categories || typeof categories !== 'object') return [];
+        
+        // Combine both English and Arabic categories
+        const allCategories = [];
+        if (Array.isArray(categories.en)) {
+            allCategories.push(...categories.en.filter(cat => cat && typeof cat === 'string'));
+        }
+        if (Array.isArray(categories.ar)) {
+            allCategories.push(...categories.ar.filter(cat => cat && typeof cat === 'string'));
+        }
+        
+        // Remove duplicates
+        return [...new Set(allCategories)];
     };
 
     // Helper function to check SEO field existence
     const checkSEOField = (blog, field, needsLanguage = true) => {
-        if (needsLanguage) {
-            // Check nested structure first, then flat structure
-            const nestedValue = blog.seo?.[field]?.[languageFilter];
-            const flatValue = blog[field] ? 
-                (typeof blog[field] === 'string' ? 
-                    (blog[field].startsWith('{') ? JSON.parse(blog[field])[languageFilter] : blog[field]) : 
-                    blog[field][languageFilter]) : '';
-            
-            return nestedValue || flatValue;
-        } else {
-            // For non-language specific fields like slug, focusKeywords
-            return blog.seo?.[field] || blog[field];
+        try {
+            // Parse SEO data if it's a string
+            let seoData = blog.seo;
+            if (typeof blog.seo === 'string' && blog.seo.trim().startsWith('{')) {
+                seoData = JSON.parse(blog.seo);
+            }
+
+            if (needsLanguage) {
+                // Check nested structure first, then flat structure
+                const nestedValue = seoData?.[field]?.[languageFilter];
+                const flatValue = blog[field] ? 
+                    (typeof blog[field] === 'string' ? 
+                        (blog[field].startsWith('{') ? JSON.parse(blog[field])[languageFilter] : blog[field]) : 
+                        blog[field][languageFilter]) : '';
+                
+                const value = nestedValue || flatValue;
+                // Return true only if the value exists and has meaningful content (not just whitespace)
+                return value && typeof value === 'string' && value.trim().length > 0;
+            } else {
+                // For non-language specific fields like slug, focusKeywords
+                const value = seoData?.[field] || blog[field];
+                // Return true only if the value exists and has meaningful content (not just whitespace)
+                return value && typeof value === 'string' && value.trim().length > 0;
+            }
+        } catch (error) {
+            console.error('Error parsing SEO data:', error);
+            return false;
         }
     };
 
@@ -224,6 +300,19 @@ function Blog() {
                         </Col>
                         <Col md={2}>
                             <Form.Select
+                                value={categoryFilter}
+                                onChange={(e) => setCategoryFilter(e.target.value)}
+                            >
+                                <option value="all">All Categories</option>
+                                {availableCategories.map((category, idx) => (
+                                    <option key={idx} value={category.name}>
+                                        {category.name} ({category.count})
+                                    </option>
+                                ))}
+                            </Form.Select>
+                        </Col>
+                        <Col md={2}>
+                            <Form.Select
                                 value={languageFilter}
                                 onChange={(e) => setLanguageFilter(e.target.value)}
                             >
@@ -231,12 +320,12 @@ function Blog() {
                                 <option value="ar">Arabic</option>
                             </Form.Select>
                         </Col>
-                        <Col md={3}>
+                        <Col md={2}>
                             <Button
                                 variant="outline-secondary"
                                 onClick={() => setShowCategoryManager(true)}
                             >
-                                <FaFilter /> Manage Categories
+                                <FaFilter /> Categories ({availableCategories.length})
                             </Button>
                         </Col>
                         <Col md={2} className="text-end">
@@ -249,27 +338,39 @@ function Blog() {
             </Card>
 
             {/* Category Overview */}
-            <Card className="mb-4">
-                <Card.Header>
-                    <h6 className="mb-0">Categories Overview</h6>
-                </Card.Header>
-                <Card.Body>
-                    <Row>
-                        {categories.map(category => (
-                            <Col md={3} key={category.id} className="mb-2">
-                                <div className="category-stat">
-                                    <span className="category-name">
-                                        {category.name[languageFilter]}
-                                    </span>
-                                    <Badge bg={category.count > 0 ? "primary" : "light"} className="ms-2">
-                                        {category.count}
-                                    </Badge>
-                                </div>
-                            </Col>
-                        ))}
-                    </Row>
-                </Card.Body>
-            </Card>
+            {availableCategories.length > 0 && (
+                <Card className="mb-4">
+                    <Card.Header>
+                        <h6 className="mb-0">Categories Overview</h6>
+                    </Card.Header>
+                    <Card.Body>
+                        <Row>
+                            {availableCategories.map((category, idx) => (
+                                <Col md={3} key={idx} className="mb-2">
+                                    <div 
+                                        className={`category-stat ${categoryFilter === category.name ? 'active' : ''}`}
+                                        style={{ 
+                                            cursor: 'pointer',
+                                            padding: '8px 12px',
+                                            borderRadius: '6px',
+                                            backgroundColor: categoryFilter === category.name ? '#e3f2fd' : 'transparent',
+                                            border: categoryFilter === category.name ? '1px solid #2196f3' : '1px solid transparent'
+                                        }}
+                                        onClick={() => setCategoryFilter(categoryFilter === category.name ? 'all' : category.name)}
+                                    >
+                                        <span className="category-name">
+                                            {category.name}
+                                        </span>
+                                        <Badge bg={category.count > 0 ? "primary" : "light"} className="ms-2">
+                                            {category.count}
+                                        </Badge>
+                                    </div>
+                                </Col>
+                            ))}
+                        </Row>
+                    </Card.Body>
+                </Card>
+            )}
 
             {/* Blogs List */}
             {loading ? (
@@ -368,7 +469,14 @@ function Blog() {
                                                 <td>
                                                     <div>
                                                         {getCategoryNames(blog.categories).map((catName, idx) => (
-                                                            <Badge key={idx} bg="info" className="me-1 mb-1">
+                                                            <Badge 
+                                                                key={idx} 
+                                                                bg="info" 
+                                                                className="me-1 mb-1"
+                                                                style={{ cursor: 'pointer' }}
+                                                                onClick={() => setCategoryFilter(catName)}
+                                                                title={`Filter by ${catName}`}
+                                                            >
                                                                 {catName}
                                                             </Badge>
                                                         ))}
@@ -474,7 +582,14 @@ function Blog() {
                                                 <strong>Categories:</strong>
                                                 <div className="mt-1">
                                                     {getCategoryNames(blog.categories).map((catName, idx) => (
-                                                        <Badge key={idx} bg="info" className="me-1">
+                                                        <Badge 
+                                                            key={idx} 
+                                                            bg="info" 
+                                                            className="me-1"
+                                                            style={{ cursor: 'pointer' }}
+                                                            onClick={() => setCategoryFilter(catName)}
+                                                            title={`Filter by ${catName}`}
+                                                        >
                                                             {catName}
                                                         </Badge>
                                                     ))}
@@ -591,25 +706,48 @@ function Blog() {
                 centered
             >
                 <Modal.Header closeButton>
-                    <Modal.Title>Category Manager</Modal.Title>
+                    <Modal.Title>Category Overview</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
                     <Alert variant="info">
-                        <strong>Note:</strong> Categories are now properly organized and only show when blogs are assigned to them.
-                        The previous issue of categories showing even when none were created has been resolved.
+                        <strong>Categories are now managed dynamically!</strong> Categories are automatically created when you add them to blog posts. 
+                        You can simply type them in the category field when creating or editing a blog.
                     </Alert>
-                    <div className="category-list">
-                        {categories.map(category => (
-                            <div key={category.id} className="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
-                                <div>
-                                    <strong>{category.name.en}</strong> / {category.name.ar}
+                    
+                    {availableCategories.length > 0 ? (
+                        <div className="category-list">
+                            <h6 className="mb-3">Current Categories ({availableCategories.length})</h6>
+                            {availableCategories.map((category, idx) => (
+                                <div key={idx} className="d-flex justify-content-between align-items-center mb-2 p-3 border rounded">
+                                    <div>
+                                        <strong>{category.name}</strong>
+                                        <br />
+                                        <small className="text-muted">Click to filter blogs by this category</small>
+                                    </div>
+                                    <div className="d-flex align-items-center gap-2">
+                                        <Badge bg={category.count > 0 ? "primary" : "light"}>
+                                            {category.count} blog{category.count !== 1 ? 's' : ''}
+                                        </Badge>
+                                        <Button
+                                            variant="outline-primary"
+                                            size="sm"
+                                            onClick={() => {
+                                                setCategoryFilter(category.name);
+                                                setShowCategoryManager(false);
+                                            }}
+                                        >
+                                            Filter
+                                        </Button>
+                                    </div>
                                 </div>
-                                <Badge bg={category.count > 0 ? "primary" : "light"}>
-                                    {category.count} blogs
-                                </Badge>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-4">
+                            <p className="text-muted">No categories found.</p>
+                            <p className="text-muted">Categories will appear here once you create blog posts with categories.</p>
+                        </div>
+                    )}
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowCategoryManager(false)}>

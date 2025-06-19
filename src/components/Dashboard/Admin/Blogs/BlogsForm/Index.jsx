@@ -36,7 +36,7 @@ const initBlogObj = {
   date: "",
   image: "",
   written_by: { en: "", ar: "" },
-  categories: [],
+  categories: { en: [], ar: [] },
   tags: [],
   status: "draft",
   featured: false,
@@ -79,16 +79,7 @@ function EnhancedBlogForm() {
     trackbacks: false
   });
 
-  const [availableCategories, setAvailableCategories] = useState([
-    { id: 1, name: { en: "Adventure", ar: "مغامرة" } },
-    { id: 2, name: { en: "Travel", ar: "سفر" } },
-    { id: 3, name: { en: "Hot Air Balloon", ar: "منطاد هوائي ساخن" } },
-    { id: 4, name: { en: "Tourism", ar: "سياحة" } }
-  ]);
 
-  // Category management state
-  const [showAddCategory, setShowAddCategory] = useState(false);
-  const [newCategory, setNewCategory] = useState({ en: "", ar: "" });
 
   const postFormats = [
     { id: 'standard', name: 'Standard', icon: '📝' },
@@ -106,34 +97,47 @@ function EnhancedBlogForm() {
 
   // Normalize category data to ensure consistent format
   const normalizeCategories = (categories) => {
-    if (!categories) return [];
+    if (!categories) return { en: [], ar: [] };
     
-    if (Array.isArray(categories)) {
-      return categories.map(cat => {
-        if (typeof cat === 'string') {
-          // If it's a string, try to parse it as JSON first
-          try {
-            const parsed = JSON.parse(cat);
-            return typeof parsed === 'object' ? parsed.id || parsed : parsed;
-          } catch {
-            // If it's not JSON, treat it as a category ID
-            return cat;
-          }
-        }
-        return cat;
-      });
+    // If it's already in the correct format
+    if (typeof categories === 'object' && !Array.isArray(categories) && categories.en !== undefined && categories.ar !== undefined) {
+      return {
+        en: Array.isArray(categories.en) ? categories.en.filter(cat => cat && cat.trim()) : [],
+        ar: Array.isArray(categories.ar) ? categories.ar.filter(cat => cat && cat.trim()) : []
+      };
     }
     
+    // If it's a string, try to parse it
     if (typeof categories === 'string') {
       try {
         const parsed = JSON.parse(categories);
-        return Array.isArray(parsed) ? parsed : [];
+        if (typeof parsed === 'object' && !Array.isArray(parsed) && parsed.en !== undefined) {
+          return {
+            en: Array.isArray(parsed.en) ? parsed.en.filter(cat => cat && cat.trim()) : [],
+            ar: Array.isArray(parsed.ar) ? parsed.ar.filter(cat => cat && cat.trim()) : []
+          };
+        }
+        // If it's an old-style array, put it in English
+        if (Array.isArray(parsed)) {
+          return {
+            en: parsed.map(cat => String(cat).trim()).filter(cat => cat),
+            ar: []
+          };
+        }
       } catch {
-        return [];
+        return { en: [], ar: [] };
       }
     }
     
-    return [];
+    // If it's an array (old format), put it in English
+    if (Array.isArray(categories)) {
+      return {
+        en: categories.map(cat => typeof cat === 'string' ? cat.trim() : String(cat).trim()).filter(cat => cat),
+        ar: []
+      };
+    }
+    
+    return { en: [], ar: [] };
   };
 
   // Debug: Log formData changes
@@ -476,7 +480,10 @@ function EnhancedBlogForm() {
           }
 
           // Ensure categories is an array using the normalize function
+          console.log("Raw categories data:", data.categories);
+          console.log("Type of categories:", typeof data.categories);
           let parsedCategories = normalizeCategories(data.categories);
+          console.log("Parsed categories:", parsedCategories);
 
           // Ensure tags is an array
           let parsedTags = [];
@@ -501,71 +508,90 @@ function EnhancedBlogForm() {
             ogDescription: { en: "", ar: "" }
           };
 
-          if (data.seo && typeof data.seo === 'object') {
-            // Parse each SEO field properly
-            if (data.seo.metaTitle) {
-              if (typeof data.seo.metaTitle === 'string') {
-                try {
-                  parsedSEO.metaTitle = JSON.parse(data.seo.metaTitle);
-                } catch {
-                  parsedSEO.metaTitle = { en: data.seo.metaTitle, ar: "" };
-                }
-              } else {
-                parsedSEO.metaTitle = data.seo.metaTitle;
+          // First check if data.seo is a string and needs to be parsed
+          let seoData = null;
+          if (data.seo) {
+            if (typeof data.seo === 'string') {
+              try {
+                seoData = JSON.parse(data.seo);
+                console.log("Parsed SEO data from string:", seoData);
+              } catch (e) {
+                console.error("Failed to parse SEO JSON string:", e);
+                seoData = null;
               }
+            } else if (typeof data.seo === 'object') {
+              seoData = data.seo;
+              console.log("SEO data is already an object:", seoData);
             }
-
-            if (data.seo.metaDescription) {
-              if (typeof data.seo.metaDescription === 'string') {
-                try {
-                  parsedSEO.metaDescription = JSON.parse(data.seo.metaDescription);
-                } catch {
-                  parsedSEO.metaDescription = { en: data.seo.metaDescription, ar: "" };
-                }
-              } else {
-                parsedSEO.metaDescription = data.seo.metaDescription;
-              }
-            }
-
-            if (data.seo.imageAlt) {
-              if (typeof data.seo.imageAlt === 'string') {
-                try {
-                  parsedSEO.imageAlt = JSON.parse(data.seo.imageAlt);
-                } catch {
-                  parsedSEO.imageAlt = { en: data.seo.imageAlt, ar: "" };
-                }
-              } else {
-                parsedSEO.imageAlt = data.seo.imageAlt;
-              }
-            }
-
-            if (data.seo.ogTitle) {
-              if (typeof data.seo.ogTitle === 'string') {
-                try {
-                  parsedSEO.ogTitle = JSON.parse(data.seo.ogTitle);
-                } catch {
-                  parsedSEO.ogTitle = { en: data.seo.ogTitle, ar: "" };
-                }
-              } else {
-                parsedSEO.ogTitle = data.seo.ogTitle;
-              }
-            }
-
-            if (data.seo.ogDescription) {
-              if (typeof data.seo.ogDescription === 'string') {
-                try {
-                  parsedSEO.ogDescription = JSON.parse(data.seo.ogDescription);
-                } catch {
-                  parsedSEO.ogDescription = { en: data.seo.ogDescription, ar: "" };
-                }
-              } else {
-                parsedSEO.ogDescription = data.seo.ogDescription;
-              }
-            }
-
-            parsedSEO.slug = data.seo.slug || data.slug || "";
-            parsedSEO.focusKeywords = data.seo.focusKeywords || "";
           }
+
+          if (seoData && typeof seoData === 'object') {
+            // Parse each SEO field properly
+            if (seoData.metaTitle) {
+              if (typeof seoData.metaTitle === 'string') {
+                try {
+                  parsedSEO.metaTitle = JSON.parse(seoData.metaTitle);
+                } catch {
+                  parsedSEO.metaTitle = { en: seoData.metaTitle, ar: "" };
+                }
+              } else if (typeof seoData.metaTitle === 'object') {
+                parsedSEO.metaTitle = seoData.metaTitle;
+              }
+            }
+
+            if (seoData.metaDescription) {
+              if (typeof seoData.metaDescription === 'string') {
+                try {
+                  parsedSEO.metaDescription = JSON.parse(seoData.metaDescription);
+                } catch {
+                  parsedSEO.metaDescription = { en: seoData.metaDescription, ar: "" };
+                }
+              } else if (typeof seoData.metaDescription === 'object') {
+                parsedSEO.metaDescription = seoData.metaDescription;
+              }
+            }
+
+            if (seoData.imageAlt) {
+              if (typeof seoData.imageAlt === 'string') {
+                try {
+                  parsedSEO.imageAlt = JSON.parse(seoData.imageAlt);
+                } catch {
+                  parsedSEO.imageAlt = { en: seoData.imageAlt, ar: "" };
+                }
+              } else if (typeof seoData.imageAlt === 'object') {
+                parsedSEO.imageAlt = seoData.imageAlt;
+              }
+            }
+
+            if (seoData.ogTitle) {
+              if (typeof seoData.ogTitle === 'string') {
+                try {
+                  parsedSEO.ogTitle = JSON.parse(seoData.ogTitle);
+                } catch {
+                  parsedSEO.ogTitle = { en: seoData.ogTitle, ar: "" };
+                }
+              } else if (typeof seoData.ogTitle === 'object') {
+                parsedSEO.ogTitle = seoData.ogTitle;
+              }
+            }
+
+            if (seoData.ogDescription) {
+              if (typeof seoData.ogDescription === 'string') {
+                try {
+                  parsedSEO.ogDescription = JSON.parse(seoData.ogDescription);
+                } catch {
+                  parsedSEO.ogDescription = { en: seoData.ogDescription, ar: "" };
+                }
+              } else if (typeof seoData.ogDescription === 'object') {
+                parsedSEO.ogDescription = seoData.ogDescription;
+              }
+            }
+
+            parsedSEO.slug = seoData.slug || data.slug || "";
+            parsedSEO.focusKeywords = seoData.focusKeywords || "";
+          }
+
+          console.log("Final parsed SEO data:", parsedSEO);
 
           const blogData = {
             title: parsedTitle,
@@ -583,7 +609,6 @@ function EnhancedBlogForm() {
           };
 
           console.log("Parsed blog data:", blogData);
-          console.log("Categories loaded:", blogData.categories);
           
           setFormData(blogData);
           setUploadedImage(data.image || "");
@@ -677,18 +702,22 @@ function EnhancedBlogForm() {
     setCurrentFile("");
   };
 
-  // Handle category selection
-  const handleCategoryChange = (categoryId) => {
-    console.log("Category change triggered for ID:", categoryId);
-    console.log("Current categories:", formData.categories);
-    
-    const updatedCategories = formData.categories.includes(categoryId)
-      ? formData.categories.filter(id => id !== categoryId)
-      : [...formData.categories, categoryId];
-
-    console.log("Updated categories:", updatedCategories);
-    
-    setFormData(prev => ({ ...prev, categories: updatedCategories }));
+  // Handle category input (bilingual)
+  const handleCategoriesChange = (value, lang) => {
+    console.log("handleCategoriesChange called with value:", value, "lang:", lang);
+    const categoriesArray = value.split(',').map(category => category.trim()).filter(category => category);
+    console.log("Processed categories array:", categoriesArray);
+    setFormData(prev => {
+      const newFormData = { 
+        ...prev, 
+        categories: { 
+          ...prev.categories, 
+          [lang]: categoriesArray 
+        }
+      };
+      console.log("Updated formData with categories:", newFormData);
+      return newFormData;
+    });
   };
 
   // Handle tags input
@@ -719,29 +748,7 @@ function EnhancedBlogForm() {
     return slug;
   };
 
-  // Handle adding new category
-  const handleAddNewCategory = () => {
-    if (!newCategory.en.trim() || !newCategory.ar.trim()) {
-      toast.error("Please enter category names in both languages");
-      return;
-    }
 
-    const categoryId = `cat_${Date.now()}`;
-    const newCategoryObj = {
-      id: categoryId,
-      name: { ...newCategory }
-    };
-
-    setAvailableCategories(prev => [...prev, newCategoryObj]);
-    setFormData(prev => ({
-      ...prev,
-      categories: [...prev.categories, categoryId]
-    }));
-
-    setNewCategory({ en: "", ar: "" });
-    setShowAddCategory(false);
-    toast.success("Category added successfully!");
-  };
 
   // Auto-generate slug when title changes
   useEffect(() => {
@@ -829,8 +836,11 @@ function EnhancedBlogForm() {
       }),
       image: uploadedImage,
       status,
-      categories: JSON.stringify(formData.categories || []),
-      tags: JSON.stringify(formData.tags || []),
+      categories: JSON.stringify({
+        en: formData.categories.en || [],
+        ar: formData.categories.ar || []
+      }),
+      tags: formData.tags || "",
       date: formData.date || "",
       featured: formData.featured || false,
       format: formData.format || 'standard',
@@ -887,8 +897,15 @@ function EnhancedBlogForm() {
     };
 
     // Debug: Log the payload to see what's being sent
+    console.log("=== FORM SUBMISSION DEBUG ===");
+    console.log("formData.categories before submission:", formData.categories);
+    console.log("formData.categories type:", typeof formData.categories);
+    console.log("formData.categories.en:", formData.categories?.en);
+    console.log("formData.categories.ar:", formData.categories?.ar);
     console.log("Sending payload:", payload);
     console.log("Categories being sent:", payload.categories);
+    console.log("Categories type in payload:", typeof payload.categories);
+    console.log("Categories is array in payload:", Array.isArray(payload.categories));
     console.log("Content with images and alt text:", {
       enContent: formData.content.en,
       arContent: formData.content.ar,
@@ -1231,105 +1248,54 @@ function EnhancedBlogForm() {
           <Card className="wordpress-categories-box mb-3">
             <Card.Header>
               <FaFolder className="me-2" />
-              Categories
-              {loading && <small className="text-muted ms-2">(Loading...)</small>}
+              Categories ({activeLanguage === 'en' ? 'English' : 'Arabic'})
             </Card.Header>
             <Card.Body>
-              <div className="categories-list">
-                {availableCategories.map(category => (
-                  <Form.Check
-                    key={category.id}
-                    type="checkbox"
-                    id={`category-${category.id}`}
-                    label={`${category.name.en} / ${category.name.ar}`}
-                    checked={formData.categories.includes(category.id)}
-                    onChange={() => handleCategoryChange(category.id)}
-                    className="mb-2"
-                  />
-                ))}
-              </div>
-
-              {/* Selected Categories Display */}
-              {formData.categories.length > 0 && (
-                <div className="selected-categories mt-3 p-2 bg-light rounded">
-                  <small className="text-muted d-block mb-2">Selected Categories:</small>
-                  {formData.categories.map(categoryId => {
-                    const category = availableCategories.find(cat => cat.id === categoryId);
-                    return category ? (
-                      <Badge key={categoryId} bg="primary" className="me-1 mb-1">
-                        {category.name.en}
-                      </Badge>
-                    ) : (
-                      <Badge key={categoryId} bg="secondary" className="me-1 mb-1">
-                        {categoryId}
-                      </Badge>
-                    );
-                  })}
+              <Form.Control
+                type="text"
+                value={formData.categories[activeLanguage]?.join(', ') || ''}
+                onChange={(e) => handleCategoriesChange(e.target.value, activeLanguage)}
+                placeholder={activeLanguage === 'en' ? "Add categories separated by commas" : "أضف الفئات مفصولة بفواصل"}
+                dir={activeLanguage === 'ar' ? 'rtl' : 'ltr'}
+              />
+              <small className="text-muted mt-1 d-block">
+                {activeLanguage === 'en' ? 'Separate categories with commas' : 'فصل الفئات بفواصل'}
+              </small>
+              {formData.categories[activeLanguage]?.length > 0 && (
+                <div className="mt-2">
+                  {formData.categories[activeLanguage].map((category, idx) => (
+                    <Badge key={idx} bg="primary" className="me-1 mb-1">
+                      {category}
+                    </Badge>
+                  ))}
                 </div>
               )}
-
-              {/* Debug Info */}
-              {process.env.NODE_ENV === 'development' && (
-                <div className="debug-info mt-2 p-2 bg-warning bg-opacity-10 rounded">
-                  <small className="text-muted">
-                    Debug: Categories count: {formData.categories.length} | 
-                    Categories: {JSON.stringify(formData.categories)}
-                  </small>
+              
+              {/* Show categories for both languages */}
+              {(formData.categories.en?.length > 0 || formData.categories.ar?.length > 0) && (
+                <div className="mt-3 p-2 bg-light rounded">
+                  <small className="text-muted d-block mb-2">All Categories:</small>
+                  {formData.categories.en?.length > 0 && (
+                    <div className="mb-1">
+                      <small className="fw-bold">English: </small>
+                      {formData.categories.en.map((category, idx) => (
+                        <Badge key={idx} bg="info" className="me-1 mb-1" style={{ fontSize: '0.7em' }}>
+                          {category}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  {formData.categories.ar?.length > 0 && (
+                    <div>
+                      <small className="fw-bold">العربية: </small>
+                      {formData.categories.ar.map((category, idx) => (
+                        <Badge key={idx} bg="warning" className="me-1 mb-1" style={{ fontSize: '0.7em' }}>
+                          {category}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-
-              {showAddCategory ? (
-                <div className="add-category-form mt-3 p-2 border rounded">
-                  <Form.Group className="mb-2">
-                    <Form.Label className="small">Category Name (English)</Form.Label>
-                    <Form.Control
-                      type="text"
-                      size="sm"
-                      value={newCategory.en}
-                      onChange={(e) => setNewCategory(prev => ({ ...prev, en: e.target.value }))}
-                      placeholder="Enter English name"
-                    />
-                  </Form.Group>
-                  <Form.Group className="mb-2">
-                    <Form.Label className="small">Category Name (Arabic)</Form.Label>
-                    <Form.Control
-                      type="text"
-                      size="sm"
-                      value={newCategory.ar}
-                      onChange={(e) => setNewCategory(prev => ({ ...prev, ar: e.target.value }))}
-                      placeholder="أدخل الاسم بالعربية"
-                      dir="rtl"
-                    />
-                  </Form.Group>
-                  <div className="d-flex gap-2">
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={handleAddNewCategory}
-                    >
-                      Add
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => {
-                        setShowAddCategory(false);
-                        setNewCategory({ en: "", ar: "" });
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="p-0 mt-2"
-                  onClick={() => setShowAddCategory(true)}
-                >
-                  + Add New Category
-                </Button>
               )}
             </Card.Body>
           </Card>
@@ -1435,26 +1401,7 @@ function EnhancedBlogForm() {
                     </Button>
                   </div>
                   
-                  {/* Alt Text Input */}
-                  <Form.Group className="mb-2">
-                    <Form.Label size="sm">
-                      Alt Text ({activeLanguage === 'en' ? 'English' : 'Arabic'})
-                    </Form.Label>
-                    <Form.Control
-                      type="text"
-                      size="sm"
-                      value={formData.seo.imageAlt[activeLanguage] || ""}
-                      onChange={(e) => handleSEOChange('imageAlt', e.target.value, activeLanguage)}
-                      placeholder={activeLanguage === 'en' ? "Describe the image..." : "وصف الصورة..."}
-                      dir={activeLanguage === 'ar' ? 'rtl' : 'ltr'}
-                    />
-                    <small className="text-muted">
-                      {activeLanguage === 'en' 
-                        ? "Add alternative text for accessibility and SEO"
-                        : "أضف نصًا بديلاً لإمكانية الوصول وتحسين محركات البحث"
-                      }
-                    </small>
-                  </Form.Group>
+
                 </div>
               ) : (
                 <div className="no-image-section">
@@ -1494,21 +1441,14 @@ function EnhancedBlogForm() {
             </div>
             
             {/* Categories in Preview */}
-            {formData.categories.length > 0 && (
+            {(formData.categories[activeLanguage]?.length > 0) && (
               <div className="mb-3">
                 <strong>Categories: </strong>
-                {formData.categories.map(categoryId => {
-                  const category = availableCategories.find(cat => cat.id === categoryId);
-                  return category ? (
-                    <Badge key={categoryId} bg="info" className="me-1">
-                      {category.name[activeLanguage] || category.name.en}
-                    </Badge>
-                  ) : (
-                    <Badge key={categoryId} bg="secondary" className="me-1">
-                      {categoryId}
-                    </Badge>
-                  );
-                })}
+                {formData.categories[activeLanguage].map((category, idx) => (
+                  <Badge key={idx} bg="info" className="me-1">
+                    {category}
+                  </Badge>
+                ))}
               </div>
             )}
             
@@ -1581,3 +1521,4 @@ if (typeof document !== 'undefined') {
   styleElement.textContent = styles;
   document.head.appendChild(styleElement);
 }
+
