@@ -1,6 +1,7 @@
 import React from 'react';
 import { Form, Row, Col, Card } from 'react-bootstrap';
 import './styles.scss';
+import { toast } from 'react-toastify';
 
 const SEOFields = ({ 
   seoData, 
@@ -280,6 +281,112 @@ const SEOFields = ({
             </Form.Group>
           </Col>
         </Row>
+
+        {/* Schema Markup Section */}
+        <Row>
+          <Col md={12}>
+            <Form.Group className="mb-3">
+              <Form.Label>
+                📋 Schema Markup (JSON-LD)
+                <small className="text-muted ms-2">Advanced SEO - Structured Data</small>
+              </Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={6}
+                value={seoData.schemaMarkup || ''}
+                onChange={(e) => handleChange('schemaMarkup', e.target.value)}
+                placeholder={`{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Your Article Title",
+  "author": {
+    "@type": "Person",
+    "name": "Author Name"
+  },
+  "datePublished": "2024-01-01",
+  "dateModified": "2024-01-01",
+  "description": "Article description",
+  "image": "https://example.com/image.jpg"
+}`}
+                style={{ fontFamily: 'monospace', fontSize: '13px' }}
+              />
+              <Form.Text className="text-muted">
+                📝 Add structured data markup for better search engine understanding. 
+                <a href="https://schema.org/Article" target="_blank" rel="noopener noreferrer" className="ms-1">
+                  Learn more about Article schema
+                </a>
+              </Form.Text>
+            </Form.Group>
+          </Col>
+        </Row>
+
+        {/* Schema Validation */}
+        {seoData.schemaMarkup && (
+          <Row>
+            <Col md={12}>
+              <div className="schema-validation p-3 mb-3" style={{ background: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '4px' }}>
+                <h6 className="mb-2">🔍 Schema Validation</h6>
+                <div className="d-flex gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-primary"
+                    onClick={() => {
+                      try {
+                        JSON.parse(seoData.schemaMarkup);
+                        toast.success('✅ Schema markup is valid JSON!');
+                      } catch (error) {
+                        toast.error('❌ Invalid JSON format: ' + error.message);
+                      }
+                    }}
+                  >
+                    Validate JSON
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-info"
+                    onClick={() => {
+                      const testUrl = `https://search.google.com/test/rich-results?url=${encodeURIComponent(window.location.href)}`;
+                      window.open(testUrl, '_blank');
+                    }}
+                  >
+                    Test with Google
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={() => {
+                      const exampleSchema = {
+                        "@context": "https://schema.org",
+                        "@type": "Article",
+                        "headline": seoData.metaTitle?.en || "Your Article Title",
+                        "author": {
+                          "@type": "Person",
+                          "name": "Maha Balloon Adventures"
+                        },
+                        "datePublished": new Date().toISOString().split('T')[0],
+                        "dateModified": new Date().toISOString().split('T')[0],
+                        "description": seoData.metaDescription?.en || "Article description",
+                        "image": "https://mahaballoonadventures.ae/logo.png",
+                        "publisher": {
+                          "@type": "Organization",
+                          "name": "Maha Balloon Adventures",
+                          "logo": {
+                            "@type": "ImageObject",
+                            "url": "https://mahaballoonadventures.ae/logo.png"
+                          }
+                        }
+                      };
+                      handleChange('schemaMarkup', JSON.stringify(exampleSchema, null, 2));
+                      toast.info('📝 Example schema markup generated!');
+                    }}
+                  >
+                    Generate Example
+                  </button>
+                </div>
+              </div>
+            </Col>
+          </Row>
+        )}
 
         {/* SEO Preview */}
         {showPreview && (

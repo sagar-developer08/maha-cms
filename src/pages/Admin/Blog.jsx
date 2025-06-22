@@ -18,12 +18,8 @@ function Blog() {
     const [statusFilter, setStatusFilter] = useState("all");
     const [languageFilter, setLanguageFilter] = useState("en");
     const [showCategoryManager, setShowCategoryManager] = useState(false);
-    const [categories, setCategories] = useState([
-        { id: 1, name: { en: "Adventure", ar: "مغامرة" }, count: 0 },
-        { id: 2, name: { en: "Travel", ar: "سفر" }, count: 0 },
-        { id: 3, name: { en: "Hot Air Balloon", ar: "منطاد هوائي ساخن" }, count: 0 },
-        { id: 4, name: { en: "Tourism", ar: "سياحة" }, count: 0 }
-    ]);
+    const [categories, setCategories] = useState([]);
+    const [selectedCategoryFilter, setSelectedCategoryFilter] = useState(null);
 
     const fetchBlogs = async () => {
         setLoading(true);
@@ -52,8 +48,39 @@ function Blog() {
                     (blog.content.startsWith('{') ? JSON.parse(blog.content) : { en: blog.content, ar: "" }) : 
                     blog.content || { en: "", ar: "" },
                 excerpt: blog.excerpt || { en: "", ar: "" },
-                categories: blog.categories || [],
-                tags: blog.tags || [],
+                categories: (() => {
+                    // Parse categories properly
+                    let cats = blog.categories;
+                    if (typeof cats === 'string') {
+                        try {
+                            // Try to parse as JSON first
+                            const parsed = JSON.parse(cats);
+                            if (Array.isArray(parsed)) {
+                                // If it's an array, return as is
+                                return parsed;
+                            } else if (parsed && typeof parsed === 'object' && parsed.en) {
+                                // If it's an object with language keys, extract the English categories
+                                return Array.isArray(parsed.en) ? parsed.en : [];
+                            }
+                        } catch (e) {
+                            console.warn('Failed to parse categories:', cats);
+                        }
+                    }
+                    return Array.isArray(cats) ? cats : [];
+                })(),
+                tags: (() => {
+                    // Parse tags properly
+                    let tagsData = blog.tags;
+                    if (typeof tagsData === 'string') {
+                        try {
+                            const parsed = JSON.parse(tagsData);
+                            return Array.isArray(parsed) ? parsed : [];
+                        } catch (e) {
+                            console.warn('Failed to parse tags:', tagsData);
+                        }
+                    }
+                    return Array.isArray(tagsData) ? tagsData : [];
+                })(),
                 status: blog.status || "draft",
                 featured: blog.featured || false,
                 seo: (() => {
@@ -108,8 +135,8 @@ function Blog() {
 
             setBlogs(processedBlogs);
             
-            // Update category counts
-            updateCategoryCounts(processedBlogs);
+            // Extract and set all unique categories from blog data
+            extractAndSetCategories(processedBlogs);
         } catch (err) {
             console.error("Error fetching blogs:", err);
             toast.error("Failed to fetch blogs");
@@ -118,14 +145,44 @@ function Blog() {
         }
     };
 
-    const updateCategoryCounts = (blogsData) => {
-        const updatedCategories = categories.map(category => ({
+    const extractAndSetCategories = (blogsData) => {
+        // Extract all unique categories from blog data
+        const categoryMap = new Map();
+        
+        blogsData.forEach(blog => {
+            if (blog.categories && Array.isArray(blog.categories)) {
+                blog.categories.forEach(categoryName => {
+                    if (categoryName && String(categoryName).trim()) {
+                        const catName = String(categoryName).trim();
+                        if (!categoryMap.has(catName)) {
+                            categoryMap.set(catName, {
+                                id: catName,
+                                name: { en: catName, ar: catName }, // Use the same name for both languages
+                                count: 0
+                            });
+                        }
+                    }
+                });
+            }
+        });
+        
+        // Count blogs for each category
+        const categoriesArray = Array.from(categoryMap.values()).map(category => ({
             ...category,
             count: blogsData.filter(blog => 
-                blog.categories && blog.categories.includes(category.id)
+                blog.categories && 
+                Array.isArray(blog.categories) && 
+                blog.categories.includes(category.id)
             ).length
         }));
-        setCategories(updatedCategories);
+        
+        // Sort categories by count (descending) then by name
+        categoriesArray.sort((a, b) => {
+            if (b.count !== a.count) return b.count - a.count;
+            return a.name.en.localeCompare(b.name.en);
+        });
+        
+        setCategories(categoriesArray);
     };
 
     useEffect(() => {
@@ -174,8 +231,11 @@ function Blog() {
             (Array.isArray(blog.tags) && blog.tags.some(tag => tag && tag.toLowerCase().includes(searchTerm.toLowerCase())));
 
         const matchesStatus = statusFilter === "all" || blog.status === statusFilter;
+        
+        const matchesCategory = !selectedCategoryFilter || 
+            (blog.categories && Array.isArray(blog.categories) && blog.categories.includes(selectedCategoryFilter));
 
-        return matchesSearch && matchesStatus;
+        return matchesSearch && matchesStatus && matchesCategory;
     });
 
     const getStatusBadge = (status) => {
@@ -209,9 +269,31 @@ function Blog() {
     const getCategoryNames = (categoryIds) => {
         if (!categoryIds || !Array.isArray(categoryIds)) return [];
         return categoryIds.map(id => {
+            // First check if it matches categories by ID
             const category = categories.find(cat => cat.id === id);
-            return category ? category.name[languageFilter] : `Unknown (${id})`;
+            if (category) {
+                return category.name[languageFilter];
+            }
+            
+            // If still not found, return the original value as category name
+            return String(id);
         });
+    };
+
+    const handleCategoryFilter = (categoryId) => {
+        if (selectedCategoryFilter === categoryId) {
+            // If the same category is clicked, remove the filter
+            setSelectedCategoryFilter(null);
+        } else {
+            // Set the new category filter
+            setSelectedCategoryFilter(categoryId);
+        }
+        // Close the category manager modal
+        setShowCategoryManager(false);
+    };
+
+    const clearCategoryFilter = () => {
+        setSelectedCategoryFilter(null);
     };
 
     // Helper function to check SEO field existence
@@ -313,9 +395,26 @@ function Blog() {
                             </Button>
                         </Col>
                         <Col md={2} className="text-end">
-                            <span className="text-muted">
-                                {filteredBlogs.length} of {blogs.length} blogs
-                            </span>
+                            <div className="d-flex flex-column align-items-end">
+                                <span className="text-muted">
+                                    {filteredBlogs.length} of {blogs.length} blogs
+                                </span>
+                                {selectedCategoryFilter && (
+                                    <div className="mt-1">
+                                        <Badge bg="info" className="me-1">
+                                            Filtered by: {selectedCategoryFilter}
+                                        </Badge>
+                                        <Button
+                                            variant="outline-secondary"
+                                            size="sm"
+                                            onClick={clearCategoryFilter}
+                                            className="py-0 px-1"
+                                        >
+                                            ×
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
                         </Col>
                     </Row>
                 </Card.Body>
@@ -591,43 +690,180 @@ function Blog() {
                                         )}
                                         
                                         <div className="seo-info">
-                                            <h6>SEO Information</h6>
-                                            <div className="small">
-                                                {/* Debug info */}
-                                                <div className="mb-2 p-2 bg-light border rounded">
-                                                    <small>Debug - Blog ID: {blog.id}, SEO Object: {JSON.stringify(blog.seo, null, 2)}</small>
+                                            <div className="d-flex align-items-center mb-3">
+                                                <h6 className="mb-0 me-2">🚀 SEO Information</h6>
+                                                <Badge bg="info" className="small">
+                                                    {languageFilter === 'en' ? 'English' : 'Arabic'}
+                                                </Badge>
+                                            </div>
+                                            
+                                            <div className="seo-cards">
+                                                {/* Meta Title */}
+                                                <div className="seo-card mb-3 p-3 border rounded" style={{ backgroundColor: '#f8f9fa' }}>
+                                                    <div className="d-flex align-items-center mb-2">
+                                                        <strong className="text-primary me-2">📝 Meta Title</strong>
+                                                        {checkSEOField(blog, 'metaTitle', true) ? (
+                                                            <Badge bg="success" className="small">✓ Set</Badge>
+                                                        ) : (
+                                                            <Badge bg="danger" className="small">✗ Missing</Badge>
+                                                        )}
+                                                    </div>
+                                                    <div className="seo-value">
+                                                        {checkSEOField(blog, 'metaTitle', true) ? (
+                                                            <div>
+                                                                <p className="mb-1 text-dark">{checkSEOField(blog, 'metaTitle', true)}</p>
+                                                                <small className="text-muted">
+                                                                    Length: {checkSEOField(blog, 'metaTitle', true).length} characters
+                                                                    {checkSEOField(blog, 'metaTitle', true).length > 60 && (
+                                                                        <span className="text-warning ms-1">(Too long for optimal SEO)</span>
+                                                                    )}
+                                                                </small>
+                                                            </div>
+                                                        ) : (
+                                                            <small className="text-muted">Meta title helps search engines understand your content</small>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                
-                                                <p>
-                                                    <strong>Meta Title:</strong> 
-                                                    <span className={checkSEOField(blog, 'metaTitle', true) ? "text-success" : "text-danger"}>
-                                                        {checkSEOField(blog, 'metaTitle', true) || "Not set"}
-                                                    </span>
-                                                </p>
-                                                <p>
-                                                    <strong>Meta Description:</strong> 
-                                                    <span className={checkSEOField(blog, 'metaDescription', true) ? "text-success" : "text-danger"}>
-                                                        {checkSEOField(blog, 'metaDescription', true) || "Not set"}
-                                                    </span>
-                                                </p>
-                                                <p>
-                                                    <strong>URL Slug:</strong> 
-                                                    <span className={checkSEOField(blog, 'slug', false) ? "text-success" : "text-danger"}>
-                                                        {checkSEOField(blog, 'slug', false) || "Not set"}
-                                                    </span>
-                                                </p>
-                                                <p>
-                                                    <strong>Focus Keywords:</strong> 
-                                                    <span className={checkSEOField(blog, 'focusKeywords', false) ? "text-success" : "text-warning"}>
-                                                        {checkSEOField(blog, 'focusKeywords', false) || "Not set"}
-                                                    </span>
-                                                </p>
-                                                <p>
-                                                    <strong>Image Alt Text:</strong> 
-                                                    <span className={checkSEOField(blog, 'imageAlt', true) ? "text-success" : "text-warning"}>
-                                                        {checkSEOField(blog, 'imageAlt', true) || "Not set"}
-                                                    </span>
-                                                </p>
+
+                                                {/* Meta Description */}
+                                                <div className="seo-card mb-3 p-3 border rounded" style={{ backgroundColor: '#f8f9fa' }}>
+                                                    <div className="d-flex align-items-center mb-2">
+                                                        <strong className="text-primary me-2">📄 Meta Description</strong>
+                                                        {checkSEOField(blog, 'metaDescription', true) ? (
+                                                            <Badge bg="success" className="small">✓ Set</Badge>
+                                                        ) : (
+                                                            <Badge bg="danger" className="small">✗ Missing</Badge>
+                                                        )}
+                                                    </div>
+                                                    <div className="seo-value">
+                                                        {checkSEOField(blog, 'metaDescription', true) ? (
+                                                            <div>
+                                                                <p className="mb-1 text-dark">{checkSEOField(blog, 'metaDescription', true)}</p>
+                                                                <small className="text-muted">
+                                                                    Length: {checkSEOField(blog, 'metaDescription', true).length} characters
+                                                                    {checkSEOField(blog, 'metaDescription', true).length > 160 && (
+                                                                        <span className="text-warning ms-1">(Too long for search results)</span>
+                                                                    )}
+                                                                </small>
+                                                            </div>
+                                                        ) : (
+                                                            <small className="text-muted">Meta description appears in search results</small>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* URL Slug */}
+                                                <div className="seo-card mb-3 p-3 border rounded" style={{ backgroundColor: '#f8f9fa' }}>
+                                                    <div className="d-flex align-items-center mb-2">
+                                                        <strong className="text-primary me-2">🔗 URL Slug</strong>
+                                                        {checkSEOField(blog, 'slug', false) ? (
+                                                            <Badge bg="success" className="small">✓ Set</Badge>
+                                                        ) : (
+                                                            <Badge bg="warning" className="small">⚠ Default</Badge>
+                                                        )}
+                                                    </div>
+                                                    <div className="seo-value">
+                                                        {checkSEOField(blog, 'slug', false) ? (
+                                                            <div>
+                                                                <code className="bg-light p-1 rounded">{checkSEOField(blog, 'slug', false)}</code>
+                                                                <div className="mt-1">
+                                                                    <small className="text-muted">Full URL: /blog/{checkSEOField(blog, 'slug', false)}</small>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <small className="text-muted">URL slug makes your links SEO-friendly</small>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Focus Keywords */}
+                                                <div className="seo-card mb-3 p-3 border rounded" style={{ backgroundColor: '#f8f9fa' }}>
+                                                    <div className="d-flex align-items-center mb-2">
+                                                        <strong className="text-primary me-2">🎯 Focus Keywords</strong>
+                                                        {checkSEOField(blog, 'focusKeywords', false) ? (
+                                                            <Badge bg="success" className="small">✓ Set</Badge>
+                                                        ) : (
+                                                            <Badge bg="warning" className="small">⚠ Optional</Badge>
+                                                        )}
+                                                    </div>
+                                                    <div className="seo-value">
+                                                        {checkSEOField(blog, 'focusKeywords', false) ? (
+                                                            <div>
+                                                                <div className="keywords-list">
+                                                                    {checkSEOField(blog, 'focusKeywords', false).split(',').map((keyword, idx) => (
+                                                                        <Badge key={idx} bg="primary" className="me-1 mb-1">
+                                                                            {keyword.trim()}
+                                                                        </Badge>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <small className="text-muted">Keywords help target specific search terms</small>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Image Alt Text */}
+                                                <div className="seo-card mb-3 p-3 border rounded" style={{ backgroundColor: '#f8f9fa' }}>
+                                                    <div className="d-flex align-items-center mb-2">
+                                                        <strong className="text-primary me-2">🖼️ Image Alt Text</strong>
+                                                        {checkSEOField(blog, 'imageAlt', true) ? (
+                                                            <Badge bg="success" className="small">✓ Set</Badge>
+                                                        ) : (
+                                                            <Badge bg="warning" className="small">⚠ Missing</Badge>
+                                                        )}
+                                                    </div>
+                                                    <div className="seo-value">
+                                                        {checkSEOField(blog, 'imageAlt', true) ? (
+                                                            <p className="mb-1 text-dark">{checkSEOField(blog, 'imageAlt', true)}</p>
+                                                        ) : (
+                                                            <small className="text-muted">Alt text improves accessibility and SEO</small>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* SEO Score Summary */}
+                                                <div className="seo-summary p-3 border rounded" style={{ backgroundColor: '#e8f5e8' }}>
+                                                    <div className="d-flex align-items-center mb-2">
+                                                        <strong className="text-success me-2">📊 SEO Score</strong>
+                                                    </div>
+                                                    <div className="seo-score">
+                                                        {(() => {
+                                                            let score = 0;
+                                                            let maxScore = 5;
+                                                            
+                                                            if (checkSEOField(blog, 'metaTitle', true)) score += 1;
+                                                            if (checkSEOField(blog, 'metaDescription', true)) score += 1;
+                                                            if (checkSEOField(blog, 'slug', false)) score += 1;
+                                                            if (checkSEOField(blog, 'focusKeywords', false)) score += 1;
+                                                            if (checkSEOField(blog, 'imageAlt', true)) score += 1;
+                                                            
+                                                            const percentage = Math.round((score / maxScore) * 100);
+                                                            const scoreColor = percentage >= 80 ? 'success' : percentage >= 60 ? 'warning' : 'danger';
+                                                            
+                                                            return (
+                                                                <div>
+                                                                    <div className="d-flex align-items-center mb-2">
+                                                                        <div className="progress flex-grow-1 me-2" style={{ height: '20px' }}>
+                                                                            <div 
+                                                                                className={`progress-bar bg-${scoreColor}`}
+                                                                                style={{ width: `${percentage}%` }}
+                                                                            >
+                                                                                {percentage}%
+                                                                            </div>
+                                                                        </div>
+                                                                        <Badge bg={scoreColor}>{score}/{maxScore}</Badge>
+                                                                    </div>
+                                                                    <small className="text-muted">
+                                                                        {percentage >= 80 ? '🌟 Excellent SEO optimization!' : 
+                                                                         percentage >= 60 ? '👍 Good SEO, room for improvement' : 
+                                                                         '⚠️ Needs SEO optimization'}
+                                                                    </small>
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </Col>
@@ -673,20 +909,63 @@ function Blog() {
                 </Modal.Header>
                 <Modal.Body>
                     <Alert variant="info">
-                        <strong>Note:</strong> Categories are now properly organized and only show when blogs are assigned to them.
-                        The previous issue of categories showing even when none were created has been resolved.
+                        <strong>Note:</strong> These are all categories found in your blog data. Click on any category to filter blogs by that category.
                     </Alert>
-                    <div className="category-list">
-                        {categories.map(category => (
-                            <div key={category.id} className="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
-                                <div>
-                                    <strong>{category.name.en}</strong> / {category.name.ar}
-                                </div>
-                                <Badge bg={category.count > 0 ? "primary" : "light"}>
-                                    {category.count} blogs
-                                </Badge>
+                    
+                    {selectedCategoryFilter && (
+                        <Alert variant="success" className="mb-3">
+                            <div className="d-flex justify-content-between align-items-center">
+                                <span>Currently filtering by: <strong>{selectedCategoryFilter}</strong></span>
+                                <Button variant="outline-success" size="sm" onClick={clearCategoryFilter}>
+                                    Clear Filter
+                                </Button>
                             </div>
-                        ))}
+                        </Alert>
+                    )}
+                    
+                    <div className="category-list" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                        {categories.length === 0 ? (
+                            <div className="text-center text-muted py-4">
+                                <p>No categories found in your blog data.</p>
+                                <small>Categories will appear here once you create blogs with categories.</small>
+                            </div>
+                        ) : (
+                            categories.map(category => (
+                                <div 
+                                    key={category.id} 
+                                    className={`d-flex justify-content-between align-items-center mb-2 p-3 border rounded category-item ${selectedCategoryFilter === category.id ? 'border-primary bg-primary bg-opacity-10' : ''}`}
+                                    style={{ cursor: 'pointer', transition: 'all 0.2s' }}
+                                    onClick={() => handleCategoryFilter(category.id)}
+                                    onMouseEnter={(e) => {
+                                        if (selectedCategoryFilter !== category.id) {
+                                            e.target.style.backgroundColor = '#f8f9fa';
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (selectedCategoryFilter !== category.id) {
+                                            e.target.style.backgroundColor = 'transparent';
+                                        }
+                                    }}
+                                >
+                                    <div>
+                                        <strong className="d-block">{category.name.en}</strong>
+                                        {category.name.en !== category.name.ar && (
+                                            <small className="text-muted">{category.name.ar}</small>
+                                        )}
+                                    </div>
+                                    <div className="d-flex align-items-center">
+                                        <Badge bg={category.count > 0 ? "primary" : "light"} className="me-2">
+                                            {category.count} blog{category.count !== 1 ? 's' : ''}
+                                        </Badge>
+                                        {selectedCategoryFilter === category.id && (
+                                            <Badge bg="success">
+                                                Active Filter
+                                            </Badge>
+                                        )}
+                                    </div>
+                                </div>
+                            ))
+                        )}
                     </div>
                 </Modal.Body>
                 <Modal.Footer>
