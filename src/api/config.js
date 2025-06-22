@@ -5,8 +5,8 @@ const axios = setupCache(Axios);
 
 const Api = axios.create({
   baseURL:
-    "http://localhost:8000/api",
-    // "loc://localhost:8000/api",
+    //  "https://oqnfmp6966.execute-api.us-east-1.amazonaws.com/dev/api",
+    "https://oqnfmp6966.execute-api.us-east-1.amazonaws.com/dev/api",
   // "https://o5whtqeiw2.execute-api.us-east-1.amazonaws.com/stagging/api",
   // "https://pign230wc2.execute-api.us-east-1.amazonaws.com/prod/api",
   timeout: 60000,
