@@ -751,31 +751,42 @@ function EnhancedBlogForm() {
     fetchCategories();
   }, []);
 
+  // Clean up categories to ensure they're always IDs
+  const cleanupCategories = (categories) => {
+    if (!Array.isArray(categories)) return [];
+    
+    return categories.map(cat => {
+      if (typeof cat === 'object') {
+        // Try to find matching category by name
+        if (cat.name && availableCategories.length > 0) {
+          const matchingCategory = availableCategories.find(availCat => 
+            (availCat.name.en === cat.name.en) || (availCat.name.ar === cat.name.ar)
+          );
+          return matchingCategory ? matchingCategory.id : null;
+        }
+        // Fallback to ID or name
+        return cat.id || cat.name?.en || JSON.stringify(cat);
+      }
+      return cat;
+    }).filter(Boolean); // Remove null values
+  };
+
   // Re-process categories when availableCategories are loaded and we have blog data
   useEffect(() => {
     if (availableCategories.length > 0 && formData.categories.length > 0 && isEdit) {
-      // Check if current categories are objects with names that need to be converted
-      const needsConversion = formData.categories.some(cat => 
-        typeof cat === 'object' && cat.name
-      );
+      // Check if current categories need cleaning
+      const needsCleaning = formData.categories.some(cat => typeof cat === 'object');
       
-      if (needsConversion) {
-        console.log("Converting category objects to IDs...");
-        const convertedCategories = formData.categories.map(cat => {
-          if (typeof cat === 'object' && cat.name) {
-            const matchingCategory = availableCategories.find(availCat => 
-              (availCat.name.en === cat.name.en) || (availCat.name.ar === cat.name.ar)
-            );
-            return matchingCategory ? matchingCategory.id : null;
-          }
-          return cat;
-        }).filter(Boolean);
+      if (needsCleaning) {
+        console.log("Cleaning up category data...");
+        const cleanedCategories = cleanupCategories(formData.categories);
         
-        console.log("Converted categories:", convertedCategories);
+        console.log("Original categories:", formData.categories);
+        console.log("Cleaned categories:", cleanedCategories);
         
         setFormData(prev => ({
           ...prev,
-          categories: convertedCategories
+          categories: cleanedCategories
         }));
       }
     }
@@ -1116,9 +1127,14 @@ function EnhancedBlogForm() {
     console.log("Category change triggered for ID:", categoryId);
     console.log("Current categories:", formData.categories);
     
-    const updatedCategories = formData.categories.includes(categoryId)
-      ? formData.categories.filter(id => id !== categoryId)
-      : [...formData.categories, categoryId];
+    // Ensure we're working with clean IDs only
+    const cleanCategories = formData.categories.map(cat => 
+      typeof cat === 'object' ? cat.id || cat.name?.en || JSON.stringify(cat) : cat
+    );
+    
+    const updatedCategories = cleanCategories.includes(categoryId)
+      ? cleanCategories.filter(id => id !== categoryId)
+      : [...cleanCategories, categoryId];
 
     console.log("Updated categories:", updatedCategories);
     
@@ -1838,17 +1854,27 @@ function EnhancedBlogForm() {
                     <small>No categories available. Create the first one below!</small>
                   </div>
                 ) : (
-                  availableCategories.map(category => (
-                    <Form.Check
-                      key={category.id}
-                      type="checkbox"
-                      id={`category-${category.id}`}
-                      label={`${category.name.en} / ${category.name.ar}`}
-                      checked={formData.categories.includes(category.id)}
-                      onChange={() => handleCategoryChange(category.id)}
-                      className="mb-2"
-                    />
-                  ))
+                  availableCategories.map(category => {
+                    // Check if category is selected (handle both ID and object formats)
+                    const isSelected = formData.categories.some(cat => {
+                      if (typeof cat === 'object') {
+                        return cat.id === category.id || cat.name?.en === category.name.en;
+                      }
+                      return cat === category.id;
+                    });
+                    
+                    return (
+                      <Form.Check
+                        key={category.id}
+                        type="checkbox"
+                        id={`category-${category.id}`}
+                        label={`${category.name.en} / ${category.name.ar}`}
+                        checked={isSelected}
+                        onChange={() => handleCategoryChange(category.id)}
+                        className="mb-2"
+                      />
+                    );
+                  })
                 )}
               </div>
 
@@ -1857,14 +1883,16 @@ function EnhancedBlogForm() {
                 <div className="selected-categories mt-3 p-2 bg-light rounded">
                   <small className="text-muted d-block mb-2">Selected Categories:</small>
                   {formData.categories.map(categoryId => {
-                    const category = availableCategories.find(cat => cat.id === categoryId);
+                    // Ensure categoryId is not an object
+                    const actualId = typeof categoryId === 'object' ? categoryId.id || categoryId.name?.en || JSON.stringify(categoryId) : categoryId;
+                    const category = availableCategories.find(cat => cat.id === actualId);
                     return category ? (
-                      <Badge key={categoryId} bg="primary" className="me-1 mb-1">
+                      <Badge key={actualId} bg="primary" className="me-1 mb-1">
                         {category.name.en}
                       </Badge>
                     ) : (
-                      <Badge key={categoryId} bg="secondary" className="me-1 mb-1">
-                        {categoryId}
+                      <Badge key={actualId} bg="secondary" className="me-1 mb-1">
+                        {String(actualId)}
                       </Badge>
                     );
                   })}
@@ -2080,14 +2108,16 @@ function EnhancedBlogForm() {
               <div className="mb-3">
                 <strong>Categories: </strong>
                 {formData.categories.map(categoryId => {
-                  const category = availableCategories.find(cat => cat.id === categoryId);
+                  // Ensure categoryId is not an object
+                  const actualId = typeof categoryId === 'object' ? categoryId.id || categoryId.name?.en || JSON.stringify(categoryId) : categoryId;
+                  const category = availableCategories.find(cat => cat.id === actualId);
                   return category ? (
-                    <Badge key={categoryId} bg="info" className="me-1">
+                    <Badge key={actualId} bg="info" className="me-1">
                       {category.name[activeLanguage] || category.name.en}
                     </Badge>
                   ) : (
-                    <Badge key={categoryId} bg="secondary" className="me-1">
-                      {categoryId}
+                    <Badge key={actualId} bg="secondary" className="me-1">
+                      {String(actualId)}
                     </Badge>
                   );
                 })}
