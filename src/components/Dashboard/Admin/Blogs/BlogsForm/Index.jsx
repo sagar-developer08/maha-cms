@@ -90,6 +90,10 @@ function EnhancedBlogForm() {
   // Category management state
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCategory, setNewCategory] = useState({ en: "", ar: "" });
+  
+  // Track if categories have been modified by user
+  const [categoriesModified, setCategoriesModified] = useState(false);
+  const [originalCategories, setOriginalCategories] = useState([]);
 
   const postFormats = [
     { id: 'standard', name: 'Standard', icon: '📝' },
@@ -772,13 +776,14 @@ function EnhancedBlogForm() {
   };
 
   // Re-process categories when availableCategories are loaded and we have blog data
+  // Only clean categories if they have been modified by the user
   useEffect(() => {
-    if (availableCategories.length > 0 && formData.categories.length > 0 && isEdit) {
+    if (availableCategories.length > 0 && formData.categories.length > 0 && isEdit && categoriesModified) {
       // Check if current categories need cleaning
       const needsCleaning = formData.categories.some(cat => typeof cat === 'object');
       
       if (needsCleaning) {
-        console.log("Cleaning up category data...");
+        console.log("Cleaning up category data because categories were modified...");
         const cleanedCategories = cleanupCategories(formData.categories);
         
         console.log("Original categories:", formData.categories);
@@ -790,7 +795,7 @@ function EnhancedBlogForm() {
         }));
       }
     }
-  }, [availableCategories, isEdit]);
+  }, [availableCategories, isEdit, categoriesModified]);
 
   // Initialize form data
   useEffect(() => {
@@ -1030,6 +1035,10 @@ function EnhancedBlogForm() {
           console.log("Meta description:", blogData.seo.metaDescription);
           console.log("Image alt text:", blogData.seo.imageAlt);
           
+          // Store original categories (from database) for comparison
+          setOriginalCategories(parsedCategories);
+          setCategoriesModified(false);
+          
           setFormData(blogData);
           setUploadedImage(data.image || "");
           updateWordCount(blogData.content[activeLanguage]);
@@ -1126,6 +1135,9 @@ function EnhancedBlogForm() {
   const handleCategoryChange = (categoryId) => {
     console.log("Category change triggered for ID:", categoryId);
     console.log("Current categories:", formData.categories);
+    
+    // Mark categories as modified by user
+    setCategoriesModified(true);
     
     // Ensure we're working with clean IDs only
     const cleanCategories = formData.categories.map(cat => 
@@ -1259,7 +1271,8 @@ function EnhancedBlogForm() {
         // Add to available categories
         setAvailableCategories(prev => [...prev, newCategoryObj]);
         
-        // Auto-select the new category
+        // Mark categories as modified and auto-select the new category
+        setCategoriesModified(true);
         setFormData(prev => ({
           ...prev,
           categories: [...prev.categories, response.data.id]
@@ -1338,21 +1351,29 @@ function EnhancedBlogForm() {
     const enContentData = extractImageAltTextData(formData.content.en);
     const arContentData = extractImageAltTextData(formData.content.ar);
 
-    // Convert category IDs to category names
-    const selectedCategories = formData.categories.map(categoryId => {
-      const category = availableCategories.find(cat => cat.id === categoryId);
-      if (category) {
-        return {
-          name: {
-            en: category.name.en,
-            ar: category.name.ar
-          }
-        };
-      }
-      return null;
-    }).filter(Boolean); // Remove null values
-
-    console.log("Selected categories with names:", selectedCategories);
+    // Use original categories if not modified, otherwise convert IDs to category names
+    let selectedCategories;
+    
+    if (categoriesModified) {
+      // Convert category IDs to category names for modified categories
+      selectedCategories = formData.categories.map(categoryId => {
+        const category = availableCategories.find(cat => cat.id === categoryId);
+        if (category) {
+          return {
+            name: {
+              en: category.name.en,
+              ar: category.name.ar
+            }
+          };
+        }
+        return null;
+      }).filter(Boolean); // Remove null values
+      console.log("Using modified categories with names:", selectedCategories);
+    } else {
+      // Use original categories format from database
+      selectedCategories = originalCategories;
+      console.log("Using original categories (unmodified):", selectedCategories);
+    }
 
     // Ensure all fields are properly structured for the backend
     const payload = {
@@ -1902,9 +1923,13 @@ function EnhancedBlogForm() {
               {/* Debug Info */}
               {process.env.NODE_ENV === 'development' && (
                 <div className="debug-info mt-2 p-2 bg-warning bg-opacity-10 rounded">
-                  <small className="text-muted">
+                  <small className="text-muted d-block">
                     Debug: Categories count: {formData.categories.length} | 
                     Categories: {JSON.stringify(formData.categories)}
+                  </small>
+                  <small className="text-muted d-block">
+                    Modified: {categoriesModified ? 'Yes' : 'No'} | 
+                    Original: {JSON.stringify(originalCategories)}
                   </small>
                 </div>
               )}
