@@ -56,8 +56,18 @@ function Blog() {
                             // Try to parse as JSON first
                             const parsed = JSON.parse(cats);
                             if (Array.isArray(parsed)) {
-                                // If it's an array, return as is
-                                return parsed;
+                                // Handle new format with category objects containing names
+                                return parsed.map(cat => {
+                                    if (cat && typeof cat === 'object' && cat.name) {
+                                        // This is a category object with name, extract the name
+                                        return {
+                                            name: cat.name.en || cat.name.ar || 'Unknown Category',
+                                            nameObj: cat.name // Keep the full name object for language switching
+                                        };
+                                    }
+                                    // Legacy format - just return the category ID/name
+                                    return typeof cat === 'string' ? cat : String(cat);
+                                });
                             } else if (parsed && typeof parsed === 'object' && parsed.en) {
                                 // If it's an object with language keys, extract the English categories
                                 return Array.isArray(parsed.en) ? parsed.en : [];
@@ -151,16 +161,31 @@ function Blog() {
         
         blogsData.forEach(blog => {
             if (blog.categories && Array.isArray(blog.categories)) {
-                blog.categories.forEach(categoryName => {
-                    if (categoryName && String(categoryName).trim()) {
-                        const catName = String(categoryName).trim();
-                        if (!categoryMap.has(catName)) {
-                            categoryMap.set(catName, {
-                                id: catName,
-                                name: { en: catName, ar: catName }, // Use the same name for both languages
-                                count: 0
-                            });
-                        }
+                blog.categories.forEach(category => {
+                    let catKey, catName, catNameObj;
+                    
+                    // Handle new format with category objects
+                    if (category && typeof category === 'object' && category.nameObj) {
+                        catKey = category.nameObj.en || category.nameObj.ar || 'unknown';
+                        catName = category.nameObj;
+                        catNameObj = category.nameObj;
+                    } else if (category && typeof category === 'object' && category.name) {
+                        catKey = category.name;
+                        catName = { en: category.name, ar: category.name };
+                        catNameObj = catName;
+                    } else if (category && String(category).trim()) {
+                        // Legacy format
+                        catKey = String(category).trim();
+                        catName = { en: catKey, ar: catKey };
+                        catNameObj = catName;
+                    }
+                    
+                    if (catKey && !categoryMap.has(catKey)) {
+                        categoryMap.set(catKey, {
+                            id: catKey,
+                            name: catNameObj,
+                            count: 0
+                        });
                     }
                 });
             }
@@ -169,11 +194,19 @@ function Blog() {
         // Count blogs for each category
         const categoriesArray = Array.from(categoryMap.values()).map(category => ({
             ...category,
-            count: blogsData.filter(blog => 
-                blog.categories && 
-                Array.isArray(blog.categories) && 
-                blog.categories.includes(category.id)
-            ).length
+            count: blogsData.filter(blog => {
+                if (!blog.categories || !Array.isArray(blog.categories)) return false;
+                
+                return blog.categories.some(cat => {
+                    if (cat && typeof cat === 'object' && cat.nameObj) {
+                        return (cat.nameObj.en === category.name.en) || (cat.nameObj.ar === category.name.ar);
+                    } else if (cat && typeof cat === 'object' && cat.name) {
+                        return cat.name === category.id;
+                    } else {
+                        return String(cat) === category.id;
+                    }
+                });
+            }).length
         }));
         
         // Sort categories by count (descending) then by name
@@ -233,7 +266,16 @@ function Blog() {
         const matchesStatus = statusFilter === "all" || blog.status === statusFilter;
         
         const matchesCategory = !selectedCategoryFilter || 
-            (blog.categories && Array.isArray(blog.categories) && blog.categories.includes(selectedCategoryFilter));
+            (blog.categories && Array.isArray(blog.categories) && blog.categories.some(cat => {
+                // Handle new format with category objects
+                if (cat && typeof cat === 'object' && cat.nameObj) {
+                    return cat.nameObj.en === selectedCategoryFilter || cat.nameObj.ar === selectedCategoryFilter;
+                } else if (cat && typeof cat === 'object' && cat.name) {
+                    return cat.name === selectedCategoryFilter;
+                } else {
+                    return String(cat) === selectedCategoryFilter;
+                }
+            }));
 
         return matchesSearch && matchesStatus && matchesCategory;
     });
@@ -266,17 +308,29 @@ function Blog() {
         }
     };
 
-    const getCategoryNames = (categoryIds) => {
-        if (!categoryIds || !Array.isArray(categoryIds)) return [];
-        return categoryIds.map(id => {
-            // First check if it matches categories by ID
-            const category = categories.find(cat => cat.id === id);
+    const getCategoryNames = (categoryData) => {
+        if (!categoryData || !Array.isArray(categoryData)) return [];
+        
+        return categoryData.map(cat => {
+            // Handle new format with category objects
+            if (cat && typeof cat === 'object' && cat.nameObj) {
+                // Use the language-specific name
+                return cat.nameObj[languageFilter] || cat.nameObj.en || cat.nameObj.ar || 'Unknown Category';
+            }
+            
+            // Handle simple category name
+            if (cat && typeof cat === 'object' && cat.name) {
+                return cat.name;
+            }
+            
+            // Legacy format - try to find in categories list
+            const category = categories.find(existingCat => existingCat.id === cat);
             if (category) {
                 return category.name[languageFilter];
             }
             
-            // If still not found, return the original value as category name
-            return String(id);
+            // Fallback - return as string
+            return String(cat);
         });
     };
 
