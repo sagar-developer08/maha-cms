@@ -90,10 +90,6 @@ function EnhancedBlogForm() {
   // Category management state
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCategory, setNewCategory] = useState({ en: "", ar: "" });
-  
-  // Track if categories have been modified by user
-  const [categoriesModified, setCategoriesModified] = useState(false);
-  const [originalCategories, setOriginalCategories] = useState([]);
 
   const postFormats = [
     { id: 'standard', name: 'Standard', icon: '📝' },
@@ -755,47 +751,51 @@ function EnhancedBlogForm() {
     fetchCategories();
   }, []);
 
-  // Clean up categories to ensure they're always IDs
-  const cleanupCategories = (categories) => {
-    if (!Array.isArray(categories)) return [];
-    
-    return categories.map(cat => {
-      if (typeof cat === 'object') {
-        // Try to find matching category by name
-        if (cat.name && availableCategories.length > 0) {
+
+
+  // Process categories when availableCategories are loaded and we have blog data
+  useEffect(() => {
+    if (availableCategories.length > 0 && formData.categories.length > 0 && isEdit) {
+      console.log("Processing categories with available categories loaded...");
+      console.log("Current formData.categories:", formData.categories);
+      console.log("Available categories:", availableCategories);
+      
+      // Convert category objects with names to category IDs for consistency
+      const processedCategories = formData.categories.map(cat => {
+        // If it's already a clean ID, keep it
+        if (typeof cat === 'number' || (typeof cat === 'string' && !cat.includes('{'))) {
+          return cat;
+        }
+        
+        // If it's a category object with name, find matching available category
+        if (cat && typeof cat === 'object' && cat.name) {
           const matchingCategory = availableCategories.find(availCat => 
             (availCat.name.en === cat.name.en) || (availCat.name.ar === cat.name.ar)
           );
-          return matchingCategory ? matchingCategory.id : null;
+          
+          if (matchingCategory) {
+            console.log(`Matched category "${cat.name.en}" with ID ${matchingCategory.id}`);
+            return matchingCategory.id;
+          } else {
+            console.warn(`No matching category found for:`, cat.name);
+            return null;
+          }
         }
-        // Fallback to ID or name
-        return cat.id || cat.name?.en || JSON.stringify(cat);
-      }
-      return cat;
-    }).filter(Boolean); // Remove null values
-  };
-
-  // Re-process categories when availableCategories are loaded and we have blog data
-  // Only clean categories if they have been modified by the user
-  useEffect(() => {
-    if (availableCategories.length > 0 && formData.categories.length > 0 && isEdit && categoriesModified) {
-      // Check if current categories need cleaning
-      const needsCleaning = formData.categories.some(cat => typeof cat === 'object');
+        
+        return cat;
+      }).filter(Boolean); // Remove null values
       
-      if (needsCleaning) {
-        console.log("Cleaning up category data because categories were modified...");
-        const cleanedCategories = cleanupCategories(formData.categories);
-        
-        console.log("Original categories:", formData.categories);
-        console.log("Cleaned categories:", cleanedCategories);
-        
+      console.log("Processed categories:", processedCategories);
+      
+      // Only update if there's a change
+      if (JSON.stringify(processedCategories) !== JSON.stringify(formData.categories)) {
         setFormData(prev => ({
           ...prev,
-          categories: cleanedCategories
+          categories: processedCategories
         }));
       }
     }
-  }, [availableCategories, isEdit, categoriesModified]);
+  }, [availableCategories, isEdit]);
 
   // Initialize form data
   useEffect(() => {
@@ -856,44 +856,7 @@ function EnhancedBlogForm() {
 
           // Ensure categories is an array using the normalize function
           let parsedCategories = normalizeCategories(data.categories);
-          
-          // Convert category objects with names to category IDs
-          const matchCategoriesWithIds = (categoryData) => {
-            if (!Array.isArray(categoryData)) return [];
-            
-            return categoryData.map(cat => {
-              // If it's already an ID (number or string), return it
-              if (typeof cat === 'number' || (typeof cat === 'string' && !cat.includes('{'))) {
-                return cat;
-              }
-              
-              // If it's a category object with name, find matching available category
-              if (cat && typeof cat === 'object' && cat.name) {
-                const matchingCategory = availableCategories.find(availCat => 
-                  (availCat.name.en === cat.name.en) || (availCat.name.ar === cat.name.ar)
-                );
-                
-                if (matchingCategory) {
-                  console.log(`Matched category "${cat.name.en}" with ID ${matchingCategory.id}`);
-                  return matchingCategory.id;
-                }
-                
-                // If no match found, log warning and skip
-                console.warn(`No matching category found for:`, cat.name);
-                return null;
-              }
-              
-              return cat;
-            }).filter(Boolean); // Remove null values
-          };
-          
-          // Wait for categories to be loaded before matching
-          if (availableCategories.length > 0) {
-            parsedCategories = matchCategoriesWithIds(parsedCategories);
-          } else {
-            // Store original category data to process later when categories are loaded
-            console.log("Categories not loaded yet, storing original data:", parsedCategories);
-          }
+          console.log("Normalized categories from database:", parsedCategories);
 
           // Ensure tags is an array
           let parsedTags = [];
@@ -1035,10 +998,6 @@ function EnhancedBlogForm() {
           console.log("Meta description:", blogData.seo.metaDescription);
           console.log("Image alt text:", blogData.seo.imageAlt);
           
-          // Store original categories (from database) for comparison
-          setOriginalCategories(parsedCategories);
-          setCategoriesModified(false);
-          
           setFormData(blogData);
           setUploadedImage(data.image || "");
           updateWordCount(blogData.content[activeLanguage]);
@@ -1135,9 +1094,6 @@ function EnhancedBlogForm() {
   const handleCategoryChange = (categoryId) => {
     console.log("Category change triggered for ID:", categoryId);
     console.log("Current categories:", formData.categories);
-    
-    // Mark categories as modified by user
-    setCategoriesModified(true);
     
     // Ensure we're working with clean IDs only
     const cleanCategories = formData.categories.map(cat => 
@@ -1271,8 +1227,7 @@ function EnhancedBlogForm() {
         // Add to available categories
         setAvailableCategories(prev => [...prev, newCategoryObj]);
         
-        // Mark categories as modified and auto-select the new category
-        setCategoriesModified(true);
+        // Auto-select the new category
         setFormData(prev => ({
           ...prev,
           categories: [...prev.categories, response.data.id]
@@ -1351,13 +1306,19 @@ function EnhancedBlogForm() {
     const enContentData = extractImageAltTextData(formData.content.en);
     const arContentData = extractImageAltTextData(formData.content.ar);
 
-    // Use original categories if not modified, otherwise convert IDs to category names
-    let selectedCategories;
+    // Always convert current category IDs to category objects with names
+    let selectedCategories = [];
     
-    if (categoriesModified) {
-      // Convert category IDs to category names for modified categories
+    if (formData.categories && formData.categories.length > 0) {
       selectedCategories = formData.categories.map(categoryId => {
-        const category = availableCategories.find(cat => cat.id === categoryId);
+        // Handle both ID strings/numbers and category objects
+        let actualId = categoryId;
+        if (typeof categoryId === 'object') {
+          actualId = categoryId.id || categoryId.name?.en;
+        }
+        
+        // Find the category in availableCategories
+        const category = availableCategories.find(cat => cat.id === actualId);
         if (category) {
           return {
             name: {
@@ -1366,14 +1327,19 @@ function EnhancedBlogForm() {
             }
           };
         }
+        
+        // Fallback: if category not found in availableCategories, 
+        // try to use the original format if it exists
+        if (typeof categoryId === 'object' && categoryId.name) {
+          return categoryId;
+        }
+        
         return null;
       }).filter(Boolean); // Remove null values
-      console.log("Using modified categories with names:", selectedCategories);
-    } else {
-      // Use original categories format from database
-      selectedCategories = originalCategories;
-      console.log("Using original categories (unmodified):", selectedCategories);
     }
+    
+    console.log("Final categories being sent:", selectedCategories);
+    console.log("Original formData.categories:", formData.categories);
 
     // Ensure all fields are properly structured for the backend
     const payload = {
@@ -1926,10 +1892,6 @@ function EnhancedBlogForm() {
                   <small className="text-muted d-block">
                     Debug: Categories count: {formData.categories.length} | 
                     Categories: {JSON.stringify(formData.categories)}
-                  </small>
-                  <small className="text-muted d-block">
-                    Modified: {categoriesModified ? 'Yes' : 'No'} | 
-                    Original: {JSON.stringify(originalCategories)}
                   </small>
                 </div>
               )}
